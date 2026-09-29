@@ -1,0 +1,1744 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CMPDI GeoAI Hub</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Google Fonts (Inter) -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <!-- Leaflet & MarkerCluster CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif; 
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        /* Custom Smooth Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background-color: #d1d5db;
+            border-radius: 9999px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background-color: #9ca3af;
+        }
+        
+        /* Smooth View Switching */
+        .page-view {
+            display: none;
+            opacity: 0;
+            transform: translateY(8px) scale(0.995);
+            transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .page-view.active {
+            display: flex;
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+
+        /* Sidebar Navigation Item Physics & Transitions */
+        .nav-btn {
+            transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .nav-btn .active-indicator {
+            opacity: 0;
+            transform: scale(0.4) rotate(-10deg);
+            transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .nav-btn.active-tab {
+            background-color: #ffffff !important;
+            color: #111111 !important;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.25), 0 0 15px rgba(163, 230, 53, 0.2) !important;
+            transform: scale(1.08) !important;
+        }
+        .nav-btn.active-tab .active-indicator {
+            opacity: 1;
+            transform: scale(1) rotate(0deg);
+        }
+
+        /* Micro Animations */
+        @keyframes pulseGlow {
+            0%, 100% { opacity: 0.35; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.05); }
+        }
+        .animate-glow {
+            animation: pulseGlow 7s ease-in-out infinite;
+        }
+
+        @keyframes floatSlow {
+            0%, 100% { transform: translateY(0px) rotate(0deg); }
+            50% { transform: translateY(-7px) rotate(1deg); }
+        }
+        .animate-float {
+            animation: floatSlow 4s ease-in-out infinite;
+        }
+
+        /* Soft Card Elevate */
+        .card-elevate {
+            transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.3s ease;
+        }
+        .card-elevate:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 14px 30px -8px rgba(0, 0, 0, 0.08);
+        }
+
+        /* Tooltip entrance */
+        .nav-tooltip {
+            transform: translateX(-8px) scale(0.95);
+            transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .group:hover .nav-tooltip {
+            transform: translateX(0) scale(1);
+        }
+
+        /* ── Leaflet & Spatial Map Custom Styles ── */
+        #map {
+            z-index: 10;
+        }
+        .leaflet-container {
+            font-family: 'Inter', sans-serif !important;
+            background: #eef2ef;
+            border-radius: 1.5rem;
+        }
+        .leaflet-pane {
+            z-index: 10 !important;
+        }
+        .leaflet-top, .leaflet-bottom {
+            z-index: 20 !important;
+        }
+        .mine-pin-container {
+            position: relative;
+            cursor: pointer;
+            transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .mine-pin-container:hover {
+            transform: translateY(-4px) scale(1.15);
+            z-index: 999 !important;
+        }
+        .mine-pin-wrapper {
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .mine-pin-svg {
+            display: block;
+            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
+        }
+        .mine-pin-pulse {
+            position: absolute;
+            bottom: -3px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 10px;
+            height: 4px;
+            border-radius: 50%;
+            background: rgba(0,0,0,0.25);
+            filter: blur(1px);
+        }
+        .mine-tooltip-custom {
+            background: #111111 !important;
+            border: 1px solid rgba(255,255,255,0.15) !important;
+            border-radius: 12px !important;
+            padding: 6px 12px !important;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3) !important;
+            color: #ffffff !important;
+        }
+        .mine-tooltip-custom::before {
+            border-top-color: #111111 !important;
+        }
+        .mine-pin-label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .mine-pin-name {
+            font-weight: 700;
+            font-size: 11px;
+            color: #ffffff;
+            letter-spacing: -0.01em;
+        }
+        .mine-pin-tag {
+            font-size: 9px;
+            font-weight: 800;
+            padding: 2px 7px;
+            border-radius: 999px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            background: #a3e635;
+            color: #111111;
+        }
+        .mine-pin-tag.sub-bccl { background: #38bdf8; color: #082f49; }
+        .mine-pin-tag.sub-ccl  { background: #4ade80; color: #052e16; }
+        .mine-pin-tag.sub-secl { background: #fbbf24; color: #451a03; }
+        .mine-pin-tag.sub-ecl  { background: #f472b6; color: #500724; }
+        .mine-pin-tag.sub-mcl  { background: #a78bfa; color: #2e1065; }
+        .mine-pin-tag.sub-wcl  { background: #fb923c; color: #431407; }
+        .mine-pin-tag.sub-ncl  { background: #2dd4bf; color: #042f2e; }
+        .mine-pin-tag.sub-sccl { background: #f87171; color: #450a0a; }
+        .mine-pin-tag.sub-nlc  { background: #818cf8; color: #1e1b4b; }
+        .mine-pin-tag.sub-nec  { background: #34d399; color: #064e3b; }
+        .mine-pin-tag.sub-private { background: #94a3b8; color: #0f172a; }
+        .mine-popup {
+            padding: 4px 2px;
+        }
+        .mine-popup h3 {
+            font-size: 14px;
+            font-weight: 800;
+            color: #111111;
+            margin-bottom: 6px;
+        }
+        .mine-popup p {
+            font-size: 11px;
+            color: #4b5563;
+            margin: 3px 0;
+        }
+        .popup-btn {
+            display: block;
+            width: 100%;
+            margin-top: 10px;
+            padding: 8px 12px;
+            border: none;
+            border-radius: 10px;
+            background: #111111;
+            color: #a3e635;
+            font-size: 11px;
+            font-weight: 800;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .popup-btn:hover {
+            background: #000000;
+            transform: translateY(-1px);
+        }
+        .report-doc {
+            font-family: 'Georgia', serif;
+            font-size: 12px;
+            line-height: 1.6;
+            color: #1f2937;
+            background: #ffffff;
+            padding: 24px;
+            border-radius: 1.5rem;
+            border: 1px solid #e5e7eb;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.03);
+        }
+        .report-doc h2 {
+            font-size: 16px;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 4px;
+            color: #111111;
+        }
+        .report-doc h3 {
+            font-size: 13px;
+            font-weight: 700;
+            text-align: center;
+            color: #374151;
+            margin-bottom: 12px;
+        }
+        .report-doc hr {
+            border: none;
+            border-top: 2px solid #111111;
+            margin: 10px 0 16px;
+        }
+        .report-doc p {
+            margin-bottom: 10px;
+            text-align: justify;
+        }
+        .report-doc table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0;
+            font-size: 11px;
+        }
+        .report-doc th, .report-doc td {
+            border: 1px solid #d1d5db;
+            padding: 6px 10px;
+            text-align: left;
+        }
+        .report-doc th {
+            background: #f9fafb;
+            font-weight: 700;
+        }
+    </style>
+</head>
+<body class="bg-[#f3f4f6] text-gray-800 h-screen overflow-hidden p-2 sm:p-4 lg:p-6 flex items-center justify-center select-none">
+
+    <!-- Outer Application Shell -->
+    <div class="flex w-full h-full max-w-[1700px] max-h-[960px] bg-[#f8f9fa] rounded-[2.5rem] shadow-[0_16px_50px_rgba(0,0,0,0.06)] overflow-hidden border border-gray-200/90 relative">
+        
+        <!-- Background Decorative Ambient Lighting -->
+        <div class="absolute top-0 left-0 w-80 h-80 bg-[#eefcce] rounded-full mix-blend-multiply filter blur-3xl opacity-40 pointer-events-none transform -translate-x-1/2 -translate-y-1/2 animate-glow"></div>
+        <div class="absolute bottom-0 right-0 w-96 h-96 bg-[#fef0db] rounded-full mix-blend-multiply filter blur-3xl opacity-40 pointer-events-none transform translate-x-1/3 translate-y-1/3 animate-glow"></div>
+
+        <!-- Mobile Sidebar Overlay -->
+        <div id="mobile-overlay" class="fixed inset-0 bg-black/40 z-40 hidden lg:hidden backdrop-blur-xs" onclick="toggleSidebar()"></div>
+
+        <!-- Dynamic Sidebar Feature Navigation Bar -->
+        <aside id="sidebar" class="absolute lg:relative z-50 h-full w-20 lg:w-24 bg-[#111111] text-white flex flex-col items-center py-6 lg:py-8 rounded-r-[2.5rem] lg:rounded-none transform transition-transform duration-300 ease-out -translate-x-full lg:translate-x-0 shadow-2xl shrink-0">
+            
+            <!-- Logo Button -->
+            <a href="#map" class="w-12 h-12 lg:w-14 lg:h-14 bg-white rounded-2xl flex items-center justify-center mb-8 shrink-0 relative overflow-hidden group cursor-pointer transition-transform hover:scale-105 shadow-lg border border-white/20">
+                <div class="w-5 h-5 lg:w-6 lg:h-6 bg-[#111111] transform rotate-45 relative z-10 group-hover:scale-110 transition-transform flex items-center justify-center">
+                    <div class="w-2 h-2 bg-[#a3e635] rounded-xs"></div>
+                </div>
+                <div class="absolute top-1 left-1 w-2 h-2 bg-[#a3e635] rounded-full opacity-80 group-hover:scale-125 transition-all"></div>
+                <div class="absolute bottom-1 right-1 w-2 h-2 bg-[#fb923c] rounded-full opacity-80 group-hover:scale-125 transition-all"></div>
+            </a>
+
+            <!-- Sidebar Feature Action Items -->
+            <nav class="flex-1 flex flex-col items-center gap-5 w-full relative px-2">
+                
+                <!-- Mine Map Feature Link (Primary Default) -->
+                <a href="#map" class="nav-btn active-tab w-12 h-12 lg:w-14 lg:h-14 rounded-2xl flex items-center justify-center relative z-10 group text-[#111111] hover:scale-105" id="nav-map">
+                    <i data-lucide="map-pin" class="w-6 h-6 stroke-[2.2]"></i>
+                    <span class="active-indicator absolute left-1 top-3.5 w-1.5 h-7 bg-[#a3e635] rounded-r-full shadow-[0_0_8px_#a3e635]"></span>
+                    <span class="nav-tooltip absolute left-20 bg-white text-[#111111] text-xs px-3 py-2 rounded-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-50 shadow-xl font-bold hidden lg:block border border-gray-100">Mine Map</span>
+                </a>
+                
+                <!-- Reports Feature Link -->
+                <a href="#reports" class="nav-btn w-12 h-12 lg:w-14 lg:h-14 rounded-2xl flex items-center justify-center relative z-10 group text-gray-400 hover:text-white hover:scale-105" id="nav-reports">
+                    <i data-lucide="folder" class="w-6 h-6 stroke-[2.2]"></i>
+                    <span class="active-indicator absolute left-1 top-3.5 w-1.5 h-7 bg-[#a3e635] rounded-r-full shadow-[0_0_8px_#a3e635]"></span>
+                    <span class="nav-tooltip absolute left-20 bg-white text-[#111111] text-xs px-3 py-2 rounded-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-50 shadow-xl font-bold hidden lg:block border border-gray-100">Reports</span>
+                </a>
+
+                <!-- Insights Feature Link -->
+                <a href="#insights" class="nav-btn w-12 h-12 lg:w-14 lg:h-14 rounded-2xl flex items-center justify-center relative z-10 group text-gray-400 hover:text-white hover:scale-105" id="nav-insights">
+                    <i data-lucide="sparkles" class="w-6 h-6 stroke-[2.2]"></i>
+                    <span class="active-indicator absolute left-1 top-3.5 w-1.5 h-7 bg-[#a3e635] rounded-r-full shadow-[0_0_8px_#a3e635]"></span>
+                    <span class="nav-tooltip absolute left-20 bg-white text-[#111111] text-xs px-3 py-2 rounded-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-50 shadow-xl font-bold hidden lg:block border border-gray-100">Insights</span>
+                </a>
+
+                <!-- GeoAI Query Link -->
+                <a href="#query" class="nav-btn w-12 h-12 lg:w-14 lg:h-14 rounded-2xl flex items-center justify-center relative z-10 group text-gray-400 hover:text-white hover:scale-105" id="nav-query">
+                    <i data-lucide="bot" class="w-6 h-6 stroke-[2.2]"></i>
+                    <span class="active-indicator absolute left-1 top-3.5 w-1.5 h-7 bg-[#a3e635] rounded-r-full shadow-[0_0_8px_#a3e635]"></span>
+                    <span class="nav-tooltip absolute left-20 bg-white text-[#111111] text-xs px-3 py-2 rounded-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-50 shadow-xl font-bold hidden lg:block border border-gray-100">AI Query</span>
+                </a>
+            </nav>
+
+            <!-- Sidebar Bottom Profile / Actions -->
+            <div class="mt-auto flex flex-col items-center gap-4 w-full pb-2 shrink-0">
+                <button onclick="openProfileModal()" class="relative w-11 h-11 lg:w-12 lg:h-12 rounded-2xl bg-white text-[#111111] flex items-center justify-center hover:scale-105 transition-all shadow-md font-extrabold text-xs lg:text-sm border border-gray-100 group">
+                    <span>AD</span>
+                    <span class="absolute bottom-0.5 right-0.5 w-3 h-3 bg-[#84cc16] rounded-full border-2 border-[#111111]"></span>
+                </button>
+                <button onclick="logout()" title="Sign Out" class="w-10 h-10 rounded-xl flex items-center justify-center text-gray-500 hover:text-white hover:bg-white/10 transition-all">
+                    <i data-lucide="log-out" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Application Body -->
+        <main class="flex-1 flex flex-col h-full overflow-hidden relative z-10 w-full">
+            
+            <!-- Top Header Action Bar -->
+            <header class="px-6 lg:px-10 py-4 lg:py-5 flex items-center justify-between gap-4 shrink-0 border-b border-gray-200/70 bg-white/70 backdrop-blur-md">
+                <div class="flex items-center gap-4">
+                    <button class="lg:hidden p-2.5 rounded-xl bg-white shadow-sm border border-gray-200 text-gray-800 hover:bg-gray-50 transition-colors" onclick="toggleSidebar()">
+                        <i data-lucide="menu" class="w-5 h-5"></i>
+                    </button>
+                    <div>
+                        <h2 class="text-xl lg:text-2xl font-black text-[#111111] flex items-center gap-2 tracking-tight" id="header-title">Spatial Mine Intelligence <span class="text-xl">🗺️</span></h2>
+                        <p class="text-xs font-semibold text-gray-500" id="header-subtitle">Interactive GIS visualization of coalfields and operational mines across India</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-center gap-3 sm:gap-4">
+                    <button onclick="openAddDataModal()" class="hidden sm:flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200/90 rounded-full text-xs font-extrabold shadow-xs hover:shadow-md hover:scale-[1.02] active:scale-95 transition-all text-gray-800">
+                        <i data-lucide="plus-circle" class="w-4 h-4 text-[#84cc16]"></i> <span>Add Data</span>
+                    </button>
+
+                    <div class="relative hidden md:block">
+                        <i data-lucide="search" class="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                        <input type="text" id="global-search" oninput="handleGlobalSearch(this.value)" placeholder="Search datasets..." class="w-48 lg:w-60 pl-10 pr-4 py-2 bg-white border border-gray-200/90 rounded-full text-xs font-semibold focus:ring-2 focus:ring-[#a3e635] outline-none shadow-2xs transition-all">
+                    </div>
+
+                    <button onclick="showNotificationDropdown()" class="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-2xs border border-gray-200/90 hover:shadow-md hover:scale-105 active:scale-95 transition-all relative">
+                        <i data-lucide="bell" class="w-4 h-4 text-gray-700"></i>
+                        <span id="notif-badge" class="absolute top-2 right-2 w-2.5 h-2.5 bg-[#fb923c] rounded-full ring-2 ring-white animate-pulse"></span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Scrollable View Area -->
+            <div class="flex-1 overflow-y-auto px-6 lg:px-10 py-6 custom-scrollbar bg-[#f8f9fa]">
+                <div class="max-w-[1500px] mx-auto w-full">
+                    
+                    <!-- ================= COAL MINE GIS MAP VIEW ================= -->
+                    <div id="page-map" class="page-view active flex-col space-y-6">
+                        
+                        <!-- Top Banner / Header Card -->
+                        <div class="bg-[#111111] rounded-[2rem] p-6 sm:p-8 text-white shadow-xl relative overflow-hidden border border-gray-800 flex flex-col md:flex-row md:items-center justify-between gap-6">
+                            <div class="relative z-10 max-w-2xl">
+                                <span class="px-3 py-1 bg-[#a3e635] text-[#111111] font-extrabold text-[10px] uppercase tracking-wider rounded-full inline-block mb-3">Geospatial Intelligence</span>
+                                <h2 class="text-2xl sm:text-3xl font-black tracking-tight mb-2">India Coalfield GIS Map</h2>
+                                <p class="text-gray-400 text-xs sm:text-sm font-medium">Pan, zoom, and explore operational mines across India. Select any mine node to inspect verified geological, safety, and production reports.</p>
+                            </div>
+                            <div class="flex items-center gap-3 shrink-0 relative z-10">
+                                <div class="px-4 py-3 bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl text-center">
+                                    <div class="text-[10px] text-gray-400 font-extrabold uppercase">Mines Network</div>
+                                    <div class="text-lg font-black text-[#a3e635]" id="map-stat-mines">—</div>
+                                </div>
+                                <div class="px-4 py-3 bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl text-center">
+                                    <div class="text-[10px] text-gray-400 font-extrabold uppercase">Archived Reports</div>
+                                    <div class="text-lg font-black text-white" id="map-stat-reports">—</div>
+                                </div>
+                                <div class="px-4 py-3 bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl text-center">
+                                    <div class="text-[10px] text-gray-400 font-extrabold uppercase">States</div>
+                                    <div class="text-lg font-black text-[#fb923c]" id="map-stat-states">—</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Split Layout: Filter & Map + Document Preview Panel -->
+                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+                            
+                            <!-- Left: Interactive Map Panel (7 cols on lg) -->
+                            <div class="lg:col-span-7 bg-white rounded-[2rem] p-6 border border-gray-200/80 card-elevate flex flex-col space-y-4">
+                                
+                                <!-- Filter & Search Controls Row -->
+                                <div class="flex flex-wrap items-center gap-3 justify-between pb-2 border-b border-gray-100">
+                                    <div class="flex flex-wrap items-center gap-2">
+                                        <!-- Subsidiary Select -->
+                                        <div class="relative">
+                                            <select id="filter-subsidiary" onchange="handleMapFilterChange()" class="bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 focus:ring-2 focus:ring-[#a3e635] outline-none cursor-pointer transition-all">
+                                                <option value="">All Subsidiaries</option>
+                                            </select>
+                                        </div>
+                                        <!-- Type Select -->
+                                        <div class="relative">
+                                            <select id="filter-type" onchange="handleMapFilterChange()" class="bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 focus:ring-2 focus:ring-[#a3e635] outline-none cursor-pointer transition-all">
+                                                <option value="">All Mine Types</option>
+                                            </select>
+                                        </div>
+                                        <!-- State Select -->
+                                        <div class="relative">
+                                            <select id="filter-state" onchange="handleMapFilterChange()" class="bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 text-xs font-bold text-gray-800 focus:ring-2 focus:ring-[#a3e635] outline-none cursor-pointer transition-all">
+                                                <option value="">All States</option>
+                                            </select>
+                                        </div>
+                                        <!-- Reset Button -->
+                                        <button onclick="resetMapFilters()" class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-xs font-bold transition-all" title="Reset Filters">
+                                            Reset
+                                        </button>
+                                    </div>
+
+                                    <!-- Search input -->
+                                    <div class="relative w-full sm:w-56">
+                                        <i data-lucide="search" class="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                        <input type="text" id="map-search" oninput="debounceMapSearch()" placeholder="Search mines or districts..." class="w-full pl-9 pr-3 py-2 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-800 focus:ring-2 focus:ring-[#a3e635] outline-none transition-all">
+                                    </div>
+                                </div>
+
+                                <!-- Map Subheader Bar: Visible Count & Legend -->
+                                <div class="flex items-center justify-between text-xs text-gray-500 font-semibold px-1">
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-2.5 h-2.5 rounded-full bg-[#84cc16] animate-pulse"></span>
+                                        <span id="map-visible-count" class="font-extrabold text-[#111111]">Loading mines...</span>
+                                    </div>
+                                    <div class="flex items-center gap-3 text-[11px] font-bold">
+                                        <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#f59e0b]"></span> Opencast</span>
+                                        <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#3b82f6]"></span> Underground</span>
+                                        <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#8b5cf6]"></span> Mixed</span>
+                                        <span class="inline-flex items-center gap-1"><span class="w-2.5 h-2.5 rounded-full bg-[#a3e635]"></span> Cluster</span>
+                                    </div>
+                                </div>
+
+                                <!-- Leaflet Map Viewport Container -->
+                                <div class="w-full h-[580px] rounded-2xl overflow-hidden border border-gray-200/90 shadow-inner relative">
+                                    <div id="map" class="w-full h-full"></div>
+                                </div>
+                            </div>
+
+                            <!-- Right: Live Document Preview Panel (5 cols on lg) -->
+                            <div class="lg:col-span-5 bg-white rounded-[2rem] border border-gray-200/80 card-elevate flex flex-col h-[690px] overflow-hidden relative">
+                                
+                                <!-- Preview Header & Tabs -->
+                                <div class="p-5 px-6 border-b border-gray-200/60 flex justify-between items-center bg-gray-50/80">
+                                    <div>
+                                        <h3 class="font-extrabold text-[#111111] text-sm tracking-tight flex items-center gap-2">
+                                            <i data-lucide="file-text" class="w-4 h-4 text-[#84cc16]"></i>
+                                            <span>Document Intelligence</span>
+                                        </h3>
+                                        <p class="text-[11px] text-gray-500 font-medium">Select a mine to inspect linked reports</p>
+                                    </div>
+                                    <div class="flex items-center gap-1 bg-white p-1 rounded-xl border border-gray-200 shadow-2xs">
+                                        <button id="tab-doc-btn" onclick="switchPreviewTab('document')" class="px-3 py-1 rounded-lg text-xs font-extrabold transition-all bg-[#111111] text-white">Document</button>
+                                        <button id="tab-rep-btn" onclick="switchPreviewTab('reports')" class="px-3 py-1 rounded-lg text-xs font-extrabold transition-all text-gray-600 hover:text-black">Reports (<span id="preview-rep-badge">0</span>)</button>
+                                    </div>
+                                </div>
+
+                                <!-- Preview Scrollable Body -->
+                                <div class="flex-1 overflow-y-auto p-6 custom-scrollbar bg-[#fafafa]" id="previewContent">
+                                    <!-- Default Empty State -->
+                                    <div class="h-full flex flex-col items-center justify-center text-center p-8">
+                                        <div class="w-16 h-16 rounded-3xl bg-[#eefcce] flex items-center justify-center mb-4 shadow-sm border border-[#d9f99d]">
+                                            <i data-lucide="map-pin" class="w-8 h-8 text-[#84cc16]"></i>
+                                        </div>
+                                        <h3 class="font-black text-base text-[#111111] mb-1">Select a Coal Mine</h3>
+                                        <p class="text-xs text-gray-500 max-w-xs leading-relaxed mb-6">Click any marker or cluster on the India map to inspect verified institutional records, safety audits, and cross-reference with CMPDIPS documents.</p>
+                                        <div class="p-3 bg-white rounded-2xl border border-gray-200 text-left text-[11px] text-gray-600 space-y-1.5 shadow-2xs max-w-xs w-full">
+                                            <div class="font-extrabold text-[#111111] flex items-center gap-1.5">
+                                                <i data-lucide="info" class="w-3.5 h-3.5 text-[#fb923c]"></i> Quick Features
+                                            </div>
+                                            <p>• Color-coded pins for Opencast, Underground, and Mixed.</p>
+                                            <p>• 1-Click "Query AI about Mine" routes to RAG chat.</p>
+                                            <p>• 1-Click "Compile Report" fills official template.</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- ================= REPORTS VIEW ================= -->
+                    <div id="page-reports" class="page-view flex-col space-y-6">
+                        <div class="bg-[#111111] rounded-[2rem] p-8 text-white shadow-xl relative overflow-hidden border border-gray-800">
+                            <div class="relative z-10">
+                                <span class="px-3 py-1 bg-[#a3e635] text-[#111111] font-extrabold text-[10px] uppercase tracking-wider rounded-full inline-block mb-3">Automated Compiler</span>
+                                <h2 class="text-2xl sm:text-3xl font-black tracking-tight mb-2">Institutional Report Builder</h2>
+                                <p class="text-gray-400 text-xs sm:text-sm font-medium">Generate parliamentary, geological, and monthly production summaries in real-time.</p>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                            <div class="lg:col-span-5">
+                                <div class="bg-white rounded-[2rem] p-6 sm:p-8 border border-gray-200/80 card-elevate h-full flex flex-col justify-between">
+                                    <div class="space-y-4">
+                                        <h3 class="text-base font-extrabold text-[#111111] flex items-center gap-2 tracking-tight">
+                                            <i data-lucide="sliders" class="w-4 h-4 text-gray-400"></i> Report Configuration
+                                        </h3>
+                                        <div>
+                                            <label class="block text-xs font-extrabold text-gray-700 mb-2 pl-1">Report Format</label>
+                                            <select id="report-type-select" onchange="updateReportPreview()" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-xs font-bold text-[#111111] focus:ring-2 focus:ring-[#a3e635] outline-none cursor-pointer">
+                                                <option value="parliamentary">Parliamentary Inquiry Response</option>
+                                                <option value="monthly">Monthly Coal Production Summary</option>
+                                                <option value="reserve">Geological Reserve Estimate</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-extrabold text-gray-700 mb-2 pl-1">Target Subsidiary</label>
+                                            <select id="report-subsidiary-select" onchange="updateReportPreview()" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-xs font-bold text-[#111111] focus:ring-2 focus:ring-[#a3e635] outline-none cursor-pointer">
+                                                <option value="All Consolidated">All Consolidated Subsidiaries</option>
+                                                <option value="BCCL">Bharat Coking Coal Limited (BCCL)</option>
+                                                <option value="CCL">Central Coalfields Limited (CCL)</option>
+                                                <option value="SECL">South Eastern Coalfields Limited (SECL)</option>
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs font-extrabold text-gray-700 mb-2 pl-1">Keywords / Focus Area</label>
+                                            <input type="text" id="report-keyword-input" oninput="updateReportPreview()" placeholder="e.g., Gevra expansion" class="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-xs font-bold text-[#111111] focus:ring-2 focus:ring-[#a3e635] outline-none">
+                                        </div>
+                                    </div>
+                                    <div class="pt-6">
+                                        <button onclick="triggerReportGeneration()" class="w-full py-4 bg-[#a3e635] text-[#111111] rounded-2xl font-black text-xs shadow-md hover:bg-[#84cc16] hover:scale-[1.01] active:scale-95 transition-all flex items-center justify-center gap-2">
+                                            <i data-lucide="file-check-2" class="w-4 h-4"></i> <span>Compile & Export Document</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="lg:col-span-7">
+                                <div class="bg-white rounded-[2rem] h-[540px] border border-gray-200/80 card-elevate flex flex-col overflow-hidden relative">
+                                    <div class="absolute top-0 right-0 w-16 h-16 bg-gray-50 rounded-bl-[2rem] flex items-center justify-center cursor-pointer z-20 hover:bg-[#eefcce] transition-colors border-l border-b border-gray-200/60" onclick="triggerReportGeneration()" title="Export Document">
+                                        <i data-lucide="download" class="w-5 h-5 text-gray-700"></i>
+                                    </div>
+                                    <div class="p-5 px-6 border-b border-gray-200/60 flex justify-between items-center bg-gray-50/60">
+                                        <h3 class="font-extrabold text-[#111111] text-sm tracking-tight">Live Document Preview</h3>
+                                        <span class="text-[11px] font-extrabold text-green-700 bg-green-50 px-3 py-1 rounded-full flex items-center gap-1.5 border border-green-200/60"><span class="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span> Dynamic Sync</span>
+                                    </div>
+                                    <div class="p-6 sm:p-10 flex-1 overflow-y-auto custom-scrollbar bg-gray-100/50">
+                                        <div id="preview-paper" class="bg-white max-w-xl mx-auto min-h-full shadow-md rounded-2xl p-8 sm:p-10 font-serif text-gray-800 border border-gray-200 relative">
+                                            <div class="text-center mb-6 border-b-2 border-gray-900 pb-4">
+                                                <h1 class="text-lg sm:text-xl font-bold uppercase tracking-wider mb-1">Government of India</h1>
+                                                <h2 id="preview-ministry-title" class="text-xs sm:text-sm font-semibold">Ministry of Coal</h2>
+                                                <p id="preview-subject-subtitle" class="text-xs mt-2 text-gray-600 font-sans font-semibold">Draft Response to Parliamentary Inquiry No. 4052</p>
+                                            </div>
+                                            <div class="space-y-4 text-justify text-xs leading-relaxed">
+                                                <p><strong>Subject:</strong> Status of Coal Production (<span id="preview-sub-badge" class="font-bold">All Consolidated</span>).</p>
+                                                <p>In response to official inquiry, AI-compiled data from verified logs across repositories indicates:</p>
+                                                <div class="bg-[#eefcce] rounded-xl p-3.5 font-sans text-[#111111] text-[11px] border border-[#d9f99d]">
+                                                    <strong>AI Confidence:</strong> 98.2% across 450+ cross-referenced docs. Keywords: <span id="preview-keyword-display" class="font-bold italic">None</span>.
+                                                </div>
+                                                <h3 class="font-bold text-xs sm:text-sm mt-4 font-sans uppercase tracking-wide">1. Production Overview (YTD)</h3>
+                                                <p>Total coal production stands at <strong>142.5 Million Tonnes</strong>, representing a Y-o-Y growth of 4.2% across major open-cast mines.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ================= INSIGHTS VIEW ================= -->
+                    <div id="page-insights" class="page-view flex-col space-y-6">
+                        <div class="bg-white rounded-[2rem] p-6 sm:p-8 border border-gray-200/80 card-elevate flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div>
+                                <span class="px-3 py-1 bg-[#eefcce] text-[#111111] font-extrabold text-[11px] rounded-full inline-block mb-2 border border-[#d9f99d]">Semantic Intelligence</span>
+                                <h2 class="text-2xl sm:text-3xl font-black text-[#111111] tracking-tight">Topic Insights & Semantic Map</h2>
+                                <p class="text-gray-500 text-xs sm:text-sm font-medium mt-1">Explore high-frequency mining terms extracted from over 1,200 verified PDF repositories.</p>
+                            </div>
+                            <div class="flex items-center gap-3 shrink-0">
+                                <div class="px-4 py-2.5 bg-gray-50 border border-gray-200/80 rounded-2xl text-center">
+                                    <div class="text-[10px] text-gray-400 font-extrabold uppercase">Indexed Files</div>
+                                    <div class="text-base font-black text-[#111111]">1,284</div>
+                                </div>
+                                <div class="px-4 py-2.5 bg-gray-50 border border-gray-200/80 rounded-2xl text-center">
+                                    <div class="text-[10px] text-gray-400 font-extrabold uppercase">Confidence</div>
+                                    <div class="text-base font-black text-[#84cc16]">98.2%</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                            <div class="lg:col-span-8 bg-white rounded-[2rem] border border-gray-200/80 card-elevate p-6 sm:p-8 flex flex-col justify-between min-h-[400px]">
+                                <div class="flex items-center justify-between mb-4">
+                                    <div>
+                                        <h3 class="font-extrabold text-[#111111] text-base tracking-tight">Interactive Word Map</h3>
+                                        <p class="text-xs font-semibold text-gray-400">Click any keyword to compile an instant report</p>
+                                    </div>
+                                    <span class="text-xs font-extrabold bg-[#eefcce] text-[#111111] px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 border border-[#d9f99d]">
+                                        <i data-lucide="sparkles" class="w-3.5 h-3.5 text-[#84cc16]"></i> AI Live
+                                    </span>
+                                </div>
+
+                                <div class="relative w-full h-[280px] flex flex-wrap content-center justify-center items-center gap-4 sm:gap-6 p-6 bg-gray-50/70 rounded-2xl border border-dashed border-gray-300">
+                                    <div onclick="selectKeyword('Extraction')" class="font-black text-[#111111] bg-white hover:bg-[#a3e635] hover:text-[#111111] transition-all duration-300 cursor-pointer select-none px-5 py-2.5 rounded-2xl shadow-sm border border-gray-200 hover:scale-110 animate-float text-xl sm:text-2xl">Extraction</div>
+                                    <div onclick="selectKeyword('Overburden')" class="font-black text-[#fb923c] bg-orange-50 hover:bg-[#fb923c] hover:text-white transition-all duration-300 cursor-pointer select-none px-5 py-2 rounded-2xl shadow-sm border border-orange-200 hover:scale-110 text-lg sm:text-xl">Overburden</div>
+                                    <div onclick="selectKeyword('Seam Depth')" class="font-black text-gray-800 bg-gray-100 hover:bg-gray-900 hover:text-white transition-all duration-300 cursor-pointer select-none px-4 py-2 rounded-2xl shadow-sm border border-gray-200 hover:scale-110 text-base sm:text-lg">Seam Depth</div>
+                                    <div onclick="selectKeyword('Forest Clearance')" class="font-black text-[#84cc16] bg-[#eefcce] hover:bg-[#111111] hover:text-[#a3e635] transition-all duration-300 cursor-pointer select-none px-4 py-2 rounded-2xl shadow-sm border border-[#d9f99d] hover:scale-110 animate-float text-lg sm:text-xl" style="animation-delay: 1s;">Forest Clearance</div>
+                                    <div onclick="selectKeyword('Boring Log')" class="font-black text-amber-800 bg-amber-50 hover:bg-amber-600 hover:text-white transition-all duration-300 cursor-pointer select-none px-3.5 py-1.5 rounded-xl shadow-2xs border border-amber-200 hover:scale-110 text-sm">Boring Log</div>
+                                    <div onclick="selectKeyword('Reserve Block')" class="font-black text-slate-800 bg-slate-100 hover:bg-slate-900 hover:text-white transition-all duration-300 cursor-pointer select-none px-4 py-2 rounded-xl shadow-2xs border border-slate-200 hover:scale-110 text-base">Reserve Block</div>
+                                    <div onclick="selectKeyword('Hydrological Audit')" class="font-black text-cyan-800 bg-cyan-50 hover:bg-cyan-600 hover:text-white transition-all duration-300 cursor-pointer select-none px-3.5 py-1.5 rounded-xl shadow-2xs border border-cyan-200 hover:scale-110 text-xs">Hydrological Audit</div>
+                                </div>
+
+                                <div class="flex items-center justify-between text-xs text-gray-400 font-bold pt-3 border-t border-gray-100">
+                                    <span>Tip: Tap keyword to load into report generator</span><span>Updated 10 mins ago</span>
+                                </div>
+                            </div>
+
+                            <div class="lg:col-span-4 bg-white rounded-[2rem] p-6 sm:p-8 border border-gray-200/80 card-elevate flex flex-col justify-between">
+                                <div>
+                                    <div class="flex items-center justify-between mb-4">
+                                        <h3 class="font-extrabold text-[#111111] text-base tracking-tight">Cluster Breakdown</h3>
+                                        <span class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600"><i data-lucide="layers" class="w-4 h-4"></i></span>
+                                    </div>
+                                    <div class="space-y-3">
+                                        <div onclick="selectKeyword('Extraction')" class="p-4 rounded-2xl bg-gray-50 hover:bg-[#eefcce]/60 transition-colors cursor-pointer border border-gray-200/70">
+                                            <div class="flex justify-between items-center mb-1"><span class="font-extrabold text-xs text-[#111111]">Extraction & Output</span><span class="text-[11px] font-black text-[#84cc16]">42%</span></div>
+                                            <p class="text-[11px] text-gray-500 font-medium">High correlation with SECL & MCL logs.</p>
+                                        </div>
+                                        <div onclick="selectKeyword('Forest Clearance')" class="p-4 rounded-2xl bg-gray-50 hover:bg-[#ffebd6]/60 transition-colors cursor-pointer border border-gray-200/70">
+                                            <div class="flex justify-between items-center mb-1"><span class="font-extrabold text-xs text-[#111111]">Forest Clearances</span><span class="text-[11px] font-black text-[#fb923c]">28%</span></div>
+                                            <p class="text-[11px] text-gray-500 font-medium">Primary bottleneck in Gevra zones.</p>
+                                        </div>
+                                        <div onclick="selectKeyword('Reserve Block')" class="p-4 rounded-2xl bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer border border-gray-200/70">
+                                            <div class="flex justify-between items-center mb-1"><span class="font-extrabold text-xs text-[#111111]">Geological Reserves</span><span class="text-[11px] font-black text-gray-700">30%</span></div>
+                                            <p class="text-[11px] text-gray-500 font-medium">Verified core seam depth metrics.</p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mt-6 pt-3 border-t border-gray-100">
+                                    <a href="#reports" class="w-full py-3.5 bg-[#111111] text-[#a3e635] rounded-2xl font-black text-xs shadow-md hover:bg-black hover:scale-[1.01] transition-all flex items-center justify-center gap-2">
+                                        <span>Build Custom Report</span> <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ================= AI QUERY VIEW ================= -->
+                    <div id="page-query" class="page-view flex-col max-w-4xl mx-auto w-full h-[580px] bg-white rounded-[2.5rem] shadow-sm border border-gray-200/80 overflow-hidden relative card-elevate">
+                        <!-- Top Header inside card -->
+                        <div class="p-4 sm:p-5 px-6 flex items-center justify-between border-b border-gray-200/70 bg-white/90 backdrop-blur-md z-10">
+                            <div class="flex items-center gap-3">
+                                <div class="w-11 h-11 rounded-2xl bg-[#111111] flex items-center justify-center shadow-md">
+                                    <i data-lucide="cpu" class="w-5 h-5 text-[#a3e635]"></i>
+                                </div>
+                                <div>
+                                    <div class="flex items-center gap-2">
+                                        <h2 class="text-sm font-black text-[#111111] tracking-tight">GeoAI Assistant</h2>
+                                        <span class="px-2.5 py-0.5 bg-[#eefcce] text-[#111111] font-extrabold text-[9px] rounded-full border border-[#d9f99d]">v2.4 PRO</span>
+                                    </div>
+                                    <p class="text-[11px] font-extrabold text-[#84cc16]">Connected to 1,284 Institutional Documents</p>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <button onclick="clearChat()" class="text-xs font-bold text-gray-600 hover:text-gray-900 bg-gray-100 hover:bg-gray-200 px-3.5 py-2 rounded-xl transition-colors">Clear Chat</button>
+                            </div>
+                        </div>
+
+                        <!-- Chat Messages Scrollable Area -->
+                        <div id="chat-messages" class="flex-1 overflow-y-auto p-6 space-y-4 custom-scrollbar bg-gray-50/50">
+                            <div class="flex gap-3 max-w-[85%]">
+                                <div class="w-9 h-9 rounded-xl bg-white flex items-center justify-center shrink-0 border border-gray-200 shadow-2xs"><i data-lucide="cpu" class="w-4 h-4 text-gray-500"></i></div>
+                                <div class="bg-white rounded-2xl rounded-tl-xs p-4 shadow-2xs border border-gray-200/70">
+                                    <p class="text-gray-800 font-semibold text-xs sm:text-sm leading-relaxed">Hello Administrator! Ask any query regarding coal production or clearance delays. Or select a quick preset prompt:</p>
+                                </div>
+                            </div>
+
+                            <div id="suggested-chips" class="flex flex-wrap gap-2 pl-12 pt-1">
+                                <button onclick="sendPresetPrompt('What is total coal production for Q3?')" class="px-4 py-2 bg-white hover:bg-[#eefcce] text-gray-800 hover:text-[#111111] border border-gray-200 rounded-full text-[11px] font-extrabold transition-all shadow-2xs hover:scale-105">📊 Q3 Total Coal Production?</button>
+                                <button onclick="sendPresetPrompt('Reasons for delay in Gevra expansion?')" class="px-4 py-2 bg-white hover:bg-[#ffebd6] text-gray-800 hover:text-[#111111] border border-gray-200 rounded-full text-[11px] font-extrabold transition-all shadow-2xs hover:scale-105">⚠️ Gevra Expansion Delays</button>
+                            </div>
+
+                            <div class="flex gap-3 max-w-[85%] ml-auto flex-row-reverse">
+                                <div class="w-9 h-9 rounded-xl bg-[#111111] flex items-center justify-center shrink-0 text-white font-extrabold text-xs shadow-md">A</div>
+                                <div class="bg-[#111111] text-white rounded-2xl rounded-tr-xs p-4 shadow-md">
+                                    <p class="font-medium text-xs sm:text-sm">Reasons for delay in Gevra expansion clearance?</p>
+                                </div>
+                            </div>
+
+                            <div class="flex gap-3 max-w-[85%]">
+                                <div class="w-9 h-9 rounded-xl bg-[#eefcce] flex items-center justify-center shrink-0 shadow-2xs border border-[#d9f99d]"><i data-lucide="cpu" class="w-4 h-4 text-[#111111]"></i></div>
+                                <div class="bg-white rounded-2xl rounded-tl-xs p-4 shadow-2xs border border-gray-200/70">
+                                    <p class="text-gray-900 font-extrabold mb-2 text-xs sm:text-sm">Based on SECL communications (Jan-Oct 2023):</p>
+                                    <ul class="list-disc list-inside text-gray-700 space-y-1 mb-2 text-xs sm:text-sm font-medium">
+                                        <li>Pending wildlife clearance from NBWL.</li>
+                                        <li>Hydrological impact assessments required in Block B.</li>
+                                    </ul>
+                                    <div class="flex items-center gap-2 pt-2 border-t border-gray-100 text-[10px] font-extrabold text-gray-400">
+                                        <span>SECL_Clearance_2023.pdf</span> • <span class="text-[#84cc16]">99.1% Confidence</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pinned Chat Input Box -->
+                        <div class="p-4 bg-white border-t border-gray-200/80 z-10">
+                            <form onsubmit="handleChatSubmit(event)" class="relative flex items-center bg-gray-50 rounded-2xl border border-gray-200 focus-within:border-[#111111] focus-within:bg-white transition-all shadow-2xs p-1">
+                                <input type="text" id="chat-input" placeholder="Ask anything about reports or geological logs..." class="w-full bg-transparent border-none pl-4 pr-3 py-3 text-[#111111] font-semibold outline-none text-xs sm:text-sm">
+                                <button type="submit" class="p-3 bg-[#a3e635] hover:bg-[#84cc16] text-[#111111] rounded-xl transition-all flex-shrink-0 hover:scale-105 active:scale-95 shadow-sm flex items-center justify-center">
+                                    <i data-lucide="send" class="w-4 h-4 font-bold"></i>
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- ================= ADD DATA MODAL ================= -->
+    <div id="add-data-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs hidden items-center justify-center p-4">
+        <div class="bg-white w-full max-w-md rounded-[2.5rem] p-8 shadow-2xl relative border border-gray-100">
+            <div class="flex justify-between items-center mb-5">
+                <h3 class="text-lg font-extrabold text-[#111111] tracking-tight">Upload Mining Dataset</h3>
+                <button onclick="closeAddDataModal()" class="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center text-gray-600 transition-colors">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <form onsubmit="handleAddDataSubmit(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-extrabold uppercase tracking-wider text-gray-600 mb-1.5 pl-1">Document Title</label>
+                    <input type="text" id="new-doc-name" required placeholder="e.g., Mahanadi_Coal_Q2.pdf" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-[#111111] focus:ring-2 focus:ring-[#a3e635] outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-extrabold uppercase tracking-wider text-gray-600 mb-1.5 pl-1">Source Category</label>
+                    <select id="new-doc-type" class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-xs font-bold text-[#111111] focus:ring-2 focus:ring-[#a3e635] outline-none">
+                        <option value="PDF Geological Report">PDF Geological Report</option>
+                        <option value="Excel Production Log">Excel Production Log</option>
+                        <option value="Clearance File">Clearance File</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-xs font-extrabold uppercase tracking-wider text-gray-600 mb-1.5 pl-1">File Upload</label>
+                    <div class="border-2 border-dashed border-gray-300 rounded-2xl p-6 text-center bg-gray-50/50 hover:bg-gray-50 cursor-pointer transition-colors">
+                        <i data-lucide="upload-cloud" class="w-7 h-7 mx-auto text-gray-400 mb-2"></i>
+                        <p class="text-xs font-extrabold text-gray-800">Click to browse or drop file here</p>
+                        <p class="text-[10px] text-gray-400 font-semibold mt-0.5">PDF, XLSX, CSV up to 50MB</p>
+                    </div>
+                </div>
+                <button type="submit" class="w-full py-4 bg-[#a3e635] text-[#111111] rounded-2xl font-black text-xs shadow-md hover:bg-[#84cc16] hover:scale-[1.01] active:scale-95 transition-all">
+                    Process & Index Dataset
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ================= PROFILE MODAL ================= -->
+    <div id="profile-modal" class="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs hidden items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-[2.5rem] p-7 shadow-2xl relative border border-gray-100">
+            <div class="flex justify-between items-center mb-5">
+                <h3 class="text-lg font-extrabold text-[#111111]">User Profile</h3>
+                <button onclick="closeProfileModal()" class="w-8 h-8 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center text-gray-600 transition-colors">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <div class="flex items-center gap-3.5 mb-5 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                <div class="w-12 h-12 rounded-2xl bg-[#111111] text-[#a3e635] flex items-center justify-center font-black text-base shadow-md">AD</div>
+                <div>
+                    <h4 class="font-extrabold text-gray-900 text-sm">Administrator</h4>
+                    <p class="text-[11px] font-semibold text-gray-500">admin.cmpdi@gov.in</p>
+                    <span class="inline-block mt-1 px-2.5 py-0.5 bg-[#eefcce] text-[#111111] rounded-full text-[10px] font-extrabold border border-[#d9f99d]">Ministry of Coal</span>
+                </div>
+            </div>
+            <div class="space-y-2.5 text-xs font-semibold text-gray-600">
+                <div class="flex justify-between py-2 border-b border-gray-100"><span>Role</span><span class="font-extrabold text-gray-900">Senior GeoAI Lead</span></div>
+                <div class="flex justify-between py-2 border-b border-gray-100"><span>Security Level</span><span class="font-extrabold text-green-600">Level 4</span></div>
+                <div class="flex justify-between py-2"><span>Institutional Node</span><span class="font-extrabold text-gray-900">Bhopal #02</span></div>
+            </div>
+            <button onclick="logout()" class="w-full mt-6 py-3.5 bg-red-50 text-red-600 rounded-2xl font-black text-xs hover:bg-red-100 transition-colors flex items-center justify-center gap-2">
+                <i data-lucide="log-out" class="w-4 h-4"></i> Sign Out Session
+            </button>
+        </div>
+    </div>
+
+    <!-- ================= APPLICATION SCRIPT ================= -->
+    <script>
+        // Initialize Lucide SVG Icons
+        lucide.createIcons();
+
+        // Routing initialization on load
+        window.addEventListener('load', () => {
+            handleRouting();
+        });
+
+        function logout() {
+            localStorage.removeItem('cmpdi_role');
+            localStorage.removeItem('cmpdi_email');
+            window.location.href = '/';
+        }
+
+        // Mobile Sidebar toggle
+        const sidebar = document.getElementById('sidebar');
+        const mobileOverlay = document.getElementById('mobile-overlay');
+        let isSidebarOpen = false;
+
+        function toggleSidebar() {
+            isSidebarOpen = !isSidebarOpen;
+            if (isSidebarOpen) {
+                sidebar.classList.remove('-translate-x-full');
+                mobileOverlay.classList.remove('hidden');
+            } else {
+                sidebar.classList.add('-translate-x-full');
+                mobileOverlay.classList.add('hidden');
+            }
+        }
+
+        // SPA Hash Navigation Manager
+        const pageMeta = {
+            'map': { title: 'Spatial Mine Intelligence <span class="text-xl">🗺️</span>', subtitle: 'Interactive GIS visualization of coalfields and operational mines across India' },
+            'reports': { title: 'Reports Center', subtitle: 'View and generate analytical documents' },
+            'insights': { title: 'AI Insights & Topic Map', subtitle: 'Discover semantic trends and clusters' },
+            'query': { title: 'GeoAI Query Assistant', subtitle: 'Talk directly to your institutional repositories' }
+        };
+
+        function handleRouting() {
+            let hash = window.location.hash || '#map';
+            let pageId = hash.replace('#', '');
+            
+            if (!['map', 'reports', 'insights', 'query'].includes(pageId)) {
+                pageId = 'map';
+                window.location.hash = '#map';
+            }
+
+            // Hide all views
+            document.querySelectorAll('.page-view').forEach(el => {
+                el.classList.remove('active');
+            });
+
+            // Show current active view
+            const target = document.getElementById('page-' + pageId);
+            if (target) target.classList.add('active');
+
+            // Update feature sidebar button states
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('active-tab');
+            });
+            const activeBtn = document.getElementById('nav-' + pageId);
+            if (activeBtn) {
+                activeBtn.classList.add('active-tab');
+            }
+
+            // Update header title text
+            if (pageMeta[pageId]) {
+                document.getElementById('header-title').innerHTML = pageMeta[pageId].title;
+                document.getElementById('header-subtitle').textContent = pageMeta[pageId].subtitle;
+            }
+
+            // Invalidate Leaflet map size on routing to ensure correct tile rendering
+            if (pageId === 'map') {
+                setTimeout(() => {
+                    if (window.mineMap) {
+                        window.mineMap.invalidateSize();
+                    } else if (typeof window.initMineMap === 'function') {
+                        window.initMineMap();
+                    }
+                }, 120);
+            }
+
+            if (window.innerWidth < 1024 && isSidebarOpen) {
+                toggleSidebar();
+            }
+
+            const container = document.querySelector('.custom-scrollbar');
+            if (container) container.scrollTop = 0;
+        }
+
+        window.addEventListener('hashchange', handleRouting);
+
+        // Modals
+        function openAddDataModal() {
+            document.getElementById('add-data-modal').classList.remove('hidden');
+            document.getElementById('add-data-modal').classList.add('flex');
+        }
+        function closeAddDataModal() {
+            document.getElementById('add-data-modal').classList.add('hidden');
+            document.getElementById('add-data-modal').classList.remove('flex');
+        }
+        function openProfileModal() {
+            document.getElementById('profile-modal').classList.remove('hidden');
+            document.getElementById('profile-modal').classList.add('flex');
+        }
+        function closeProfileModal() {
+            document.getElementById('profile-modal').classList.add('hidden');
+            document.getElementById('profile-modal').classList.remove('flex');
+        }
+
+        function handleAddDataSubmit(e) {
+            e.preventDefault();
+            const name = document.getElementById('new-doc-name').value;
+            const tbody = document.getElementById('documents-table-body');
+            const newRow = document.createElement('div');
+            newRow.className = 'grid grid-cols-4 gap-4 items-center bg-gray-50 hover:bg-[#eefcce]/50 transition-all rounded-2xl p-3.5 px-4 cursor-pointer border border-gray-200/50 hover:border-[#a3e635]/60';
+            newRow.innerHTML = `
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 rounded-xl bg-[#a3e635] flex items-center justify-center shadow-2xs"><i data-lucide="file-text" class="w-4 h-4 text-[#111111]"></i></div>
+                    <span class="font-extrabold text-xs text-[#111111]">${name}</span>
+                </div>
+                <div class="text-xs text-gray-500 font-bold">${new Date().toLocaleDateString()}</div>
+                <div><span class="inline-flex items-center gap-1.5 px-3 py-1 bg-white rounded-full text-xs font-extrabold text-[#111111] border border-gray-200/80 shadow-2xs"><i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-[#84cc16]"></i> 100%</span></div>
+                <div class="text-xs font-black text-[#111111]">${Math.floor(Math.random() * 5000 + 500)}</div>
+            `;
+            tbody.prepend(newRow);
+            lucide.createIcons();
+            closeAddDataModal();
+            alertBox('Successfully indexed dataset: ' + name);
+        }
+
+        // Report Preview Sync
+        function updateReportPreview() {
+            const type = document.getElementById('report-type-select').value;
+            const sub = document.getElementById('report-subsidiary-select').value;
+            const keyword = document.getElementById('report-keyword-input').value;
+
+            document.getElementById('preview-sub-badge').textContent = sub;
+            document.getElementById('preview-keyword-display').textContent = keyword ? keyword : 'None';
+
+            let subtitle = 'Draft Response to Parliamentary Inquiry No. 4052';
+            if (type === 'monthly') subtitle = 'Official Monthly Coal Production & Despatch Summary';
+            if (type === 'reserve') subtitle = 'Certified Geological Reserve Assessment Report';
+            document.getElementById('preview-subject-subtitle').textContent = subtitle;
+        }
+
+        function triggerReportGeneration() {
+            alertBox('Report compiled successfully! Downloading PDF package...');
+        }
+
+        function selectKeyword(kw) {
+            location.hash = '#reports';
+            setTimeout(() => {
+                document.getElementById('report-keyword-input').value = kw;
+                updateReportPreview();
+                alertBox('Loaded keyword "' + kw + '" into Report Generator.');
+            }, 150);
+        }
+
+        // AI Chat Handlers
+        function sendPresetPrompt(promptText) {
+            document.getElementById('chat-input').value = promptText;
+            const form = document.querySelector('#page-query form');
+            if (form) {
+                const submitEvent = new Event('submit', { cancelable: true });
+                form.dispatchEvent(submitEvent);
+            }
+        }
+
+        function handleChatSubmit(e) {
+            e.preventDefault();
+            const input = document.getElementById('chat-input');
+            const query = input.value.trim();
+            if (!query) return;
+
+            const chatMessages = document.getElementById('chat-messages');
+            const chips = document.getElementById('suggested-chips');
+            if (chips) chips.style.display = 'none';
+
+            const userMsg = document.createElement('div');
+            userMsg.className = 'flex gap-3 max-w-[85%] ml-auto flex-row-reverse';
+            userMsg.innerHTML = `
+                <div class="w-9 h-9 rounded-xl bg-[#111111] flex items-center justify-center shrink-0 text-white font-extrabold text-xs shadow-md">A</div>
+                <div class="bg-[#111111] text-white rounded-2xl rounded-tr-xs p-4 shadow-md">
+                    <p class="font-medium text-xs sm:text-sm">${query}</p>
+                </div>
+            `;
+            chatMessages.appendChild(userMsg);
+            input.value = '';
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            setTimeout(() => {
+                const aiMsg = document.createElement('div');
+                aiMsg.className = 'flex gap-3 max-w-[85%]';
+                aiMsg.innerHTML = `
+                    <div class="w-9 h-9 rounded-xl bg-[#eefcce] flex items-center justify-center shrink-0 shadow-2xs border border-[#d9f99d]"><i data-lucide="cpu" class="w-4 h-4 text-[#111111]"></i></div>
+                    <div class="bg-white rounded-2xl rounded-tl-xs p-4 shadow-2xs border border-gray-200/70">
+                        <p class="text-gray-900 font-extrabold mb-1.5 text-xs sm:text-sm">Synthesizing repositories for "${query}":</p>
+                        <p class="text-gray-700 font-medium text-xs sm:text-sm mb-2">Verified extraction rates align with projected targets at 98.2% confidence. No critical anomalies flagged in recent OCR audits across nodes.</p>
+                        <div class="flex items-center gap-2 pt-2 border-t border-gray-100 text-[10px] font-extrabold text-gray-400">
+                            <span>Consolidated_Repository_2023.db</span> • <span class="text-[#84cc16]">98.5% Confidence</span>
+                        </div>
+                    </div>
+                `;
+                chatMessages.appendChild(aiMsg);
+                lucide.createIcons();
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }, 500);
+        }
+
+        function clearChat() {
+            const chatMessages = document.getElementById('chat-messages');
+            chatMessages.innerHTML = `
+                <div class="flex gap-3 max-w-[85%]">
+                    <div class="w-9 h-9 rounded-xl bg-white flex items-center justify-center shrink-0 border border-gray-200 shadow-2xs"><i data-lucide="cpu" class="w-4 h-4 text-gray-500"></i></div>
+                    <div class="bg-white rounded-2xl rounded-tl-xs p-4 shadow-2xs border border-gray-200/70">
+                        <p class="text-gray-800 font-semibold text-xs sm:text-sm">Chat cleared. Ready for your next query.</p>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function alertBox(msg) {
+            const box = document.createElement('div');
+            box.className = 'fixed bottom-6 right-6 z-50 bg-[#111111] text-white px-5 py-3.5 rounded-2xl shadow-2xl flex items-center gap-3 border border-gray-800 text-xs font-bold';
+            box.innerHTML = `<i data-lucide="check-circle-2" class="w-4 h-4 text-[#a3e635]"></i><span>${msg}</span>`;
+            document.body.appendChild(box);
+            lucide.createIcons();
+            setTimeout(() => {
+                box.style.opacity = '0';
+                box.style.transition = 'opacity 0.3s';
+                setTimeout(() => box.remove(), 300);
+            }, 3000);
+        }
+
+        function showNotificationDropdown() {
+            alertBox('No new institutional alerts. All extraction nodes running normally.');
+        }
+
+        function handleGlobalSearch(val) {
+            if (val.length > 2) {
+                // Global search handler
+            }
+        }
+    </script>
+
+    <!-- ═══════════════════════════════════════════════════════
+         CMPDI GeoAI Hub — Real Backend Integration v2.0
+         Ministry User Portal (Original UI preserved)
+    ═══════════════════════════════════════════════════════ -->
+    <script>
+    const API = 'http://localhost:8000';
+
+    // ── Auth Guard ────────────────────────────────────────────────────────────
+    (function() {
+        const role = localStorage.getItem('cmpdi_role');
+        const email = localStorage.getItem('cmpdi_email');
+        if (!role || role !== 'user') { window.location.href = '/'; return; }
+        // Show user email in profile button
+        window.addEventListener('load', () => {
+            const profileBtn = document.querySelector('[onclick="openProfileModal()"] span');
+            if (profileBtn && email) profileBtn.textContent = email.substring(0,2).toUpperCase();
+        });
+    })();
+
+    // ── Override logout ───────────────────────────────────────────────────────
+    window.logout = function() {
+        localStorage.removeItem('cmpdi_role');
+        localStorage.removeItem('cmpdi_email');
+        window.location.href = '/';
+    };
+
+    // ── Load real docs into dashboard on startup ──────────────────────────────
+    window.addEventListener('load', () => {
+        setTimeout(loadRealDocuments, 1000);
+    });
+
+    async function loadRealDocuments() {
+        try {
+            const [docsRes, statsRes] = await Promise.all([
+                fetch(`${API}/api/documents`),
+                fetch(`${API}/api/stats`)
+            ]);
+            const docsData = await docsRes.json();
+            const statsData = await statsRes.json();
+            const docs = docsData.documents || [];
+            const tbody = document.getElementById('documents-table-body');
+            if (!tbody || docs.length === 0) return;
+
+            const extColors = {pdf:'#a3e635', xlsx:'#fb923c', docx:'#3b82f6', pptx:'#8b5cf6', png:'#ec4899', jpg:'#ec4899'};
+            tbody.innerHTML = docs.map(doc => {
+                const ext = doc.filename.split('.').pop().toLowerCase();
+                const c = extColors[ext] || '#a3e635';
+                return `<div class="grid grid-cols-4 gap-4 items-center bg-gray-50 hover:bg-[#eefcce]/50 transition-all rounded-2xl p-3.5 px-4 cursor-pointer border border-gray-200/50 hover:border-[#a3e635]/60">
+                    <div class="flex items-center gap-3">
+                        <div class="w-9 h-9 rounded-xl flex items-center justify-center shadow-2xs" style="background:${c}"><i data-lucide="file-text" class="w-4 h-4 text-[#111111]"></i></div>
+                        <div><span class="font-extrabold text-xs text-[#111111] truncate block max-w-[110px]" title="${doc.filename}">${doc.filename}</span><span class="text-[10px] text-gray-400">${doc.subsidiary}</span></div>
+                    </div>
+                    <div class="text-xs text-gray-500 font-bold">${doc.uploaded_at}</div>
+                    <div><span class="inline-flex items-center gap-1.5 px-3 py-1 bg-white rounded-full text-xs font-extrabold text-[#111111] border border-gray-200/80 shadow-2xs"><i data-lucide="check-circle-2" class="w-3.5 h-3.5 text-[#84cc16]"></i> ${doc.status}</span></div>
+                    <div class="text-xs font-black text-[#111111]">${doc.chunks.toLocaleString()}</div>
+                </div>`;
+            }).join('');
+            lucide.createIcons();
+
+            // Update connected docs count in query page
+            const connectedEl = document.querySelector('#page-query .text-\\[11px\\]');
+            if (connectedEl) connectedEl.textContent = `Connected to ${docs.length} Indexed Documents`;
+        } catch(e) {}
+    }
+
+    // ── Real Chat ─────────────────────────────────────────────────────────────
+    window.handleChatSubmit = async function(e) {
+        e.preventDefault();
+        const input = document.getElementById('chat-input');
+        const query = input.value.trim();
+        if (!query) return;
+        const cm = document.getElementById('chat-messages');
+        const chips = document.getElementById('suggested-chips');
+        if (chips) chips.style.display = 'none';
+
+        // User bubble
+        const um = document.createElement('div');
+        um.className = 'flex gap-3 max-w-[85%] ml-auto flex-row-reverse';
+        um.innerHTML = `<div class="w-9 h-9 rounded-xl bg-[#111111] flex items-center justify-center shrink-0 text-white font-extrabold text-xs shadow-md">${(localStorage.getItem('cmpdi_email')||'U')[0].toUpperCase()}</div><div class="bg-[#111111] text-white rounded-2xl rounded-tr-xs p-4 shadow-md"><p class="font-medium text-xs sm:text-sm">${query}</p></div>`;
+        cm.appendChild(um);
+        input.value = '';
+
+        // Typing indicator
+        const ld = document.createElement('div');
+        ld.id = 'geo-loading'; ld.className = 'flex gap-3 max-w-[85%]';
+        ld.innerHTML = `<div class="w-9 h-9 rounded-xl bg-[#eefcce] flex items-center justify-center shrink-0 shadow-2xs border border-[#d9f99d]"><i data-lucide="cpu" class="w-4 h-4 text-[#111111]"></i></div><div class="bg-white rounded-2xl rounded-tl-xs p-4 shadow-2xs border border-gray-200/70 flex items-center gap-2"><div class="flex gap-1"><span class="w-2 h-2 bg-[#a3e635] rounded-full animate-bounce"></span><span class="w-2 h-2 bg-[#a3e635] rounded-full animate-bounce" style="animation-delay:.15s"></span><span class="w-2 h-2 bg-[#a3e635] rounded-full animate-bounce" style="animation-delay:.3s"></span></div><span class="text-xs text-gray-400 font-semibold">GeoAI analysing repositories...</span></div>`;
+        cm.appendChild(ld); lucide.createIcons(); cm.scrollTop = cm.scrollHeight;
+
+        const startTime = Date.now();
+        try {
+            const res = await fetch(`${API}/api/chat`, {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ query, top_k: 5 })
+            });
+            const d = await res.json();
+            document.getElementById('geo-loading')?.remove();
+            const elapsed = ((Date.now()-startTime)/1000).toFixed(1);
+
+            if (res.ok && d.answer) {
+                const sources = d.sources || [];
+                const srcText = sources.slice(0,2).map(s=>`${s.file} · p.${s.page}`).join(' | ') || 'Institutional Repository';
+                const confidence = sources.length ? Math.round(sources[0].score * 100) : 98;
+
+                const am = document.createElement('div');
+                am.className = 'flex gap-3 max-w-[85%]';
+                am.innerHTML = `<div class="w-9 h-9 rounded-xl bg-[#eefcce] flex items-center justify-center shrink-0 shadow-2xs border border-[#d9f99d]"><i data-lucide="cpu" class="w-4 h-4 text-[#111111]"></i></div>
+                <div class="bg-white rounded-2xl rounded-tl-xs p-4 shadow-2xs border border-gray-200/70 max-w-full">
+                    <p class="text-gray-900 font-semibold text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">${d.answer}</p>
+                    <div class="flex items-center justify-between mt-3 pt-2.5 border-t border-gray-100 flex-wrap gap-2">
+                        <div class="flex items-center gap-1.5 text-[10px] font-extrabold text-gray-400"><i data-lucide="book-open" class="w-3 h-3"></i><span>${srcText}</span></div>
+                        <div class="flex items-center gap-2">
+                            <span class="text-[10px] font-black text-[#65a30d] bg-[#f7fee7] px-2 py-0.5 rounded-full">${confidence}% confidence</span>
+                            <span class="text-[10px] text-gray-300 font-bold">${elapsed}s</span>
+                        </div>
+                    </div>
+                </div>`;
+                cm.appendChild(am);
+            } else {
+                appendChatError(cm, d.detail || 'No relevant data found. Ask admin to upload documents.');
+            }
+        } catch(err) {
+            document.getElementById('geo-loading')?.remove();
+            appendChatError(cm, 'Backend offline. Contact admin to start the server.');
+        }
+        lucide.createIcons(); cm.scrollTop = cm.scrollHeight;
+    };
+
+    function appendChatError(cm, msg) {
+        const em = document.createElement('div');
+        em.className = 'flex gap-3 max-w-[85%]';
+        em.innerHTML = `<div class="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center shrink-0 border border-red-200"><i data-lucide="alert-circle" class="w-4 h-4 text-red-400"></i></div><div class="bg-red-50 rounded-2xl p-4 border border-red-200"><p class="text-red-700 font-semibold text-xs">${msg}</p></div>`;
+        cm.appendChild(em);
+    }
+
+    // ── Real Clear Chat ───────────────────────────────────────────────────────
+    window.clearChat = async function() {
+        await fetch(`${API}/api/chat/clear`, {method:'POST'}).catch(()=>{});
+        const cm = document.getElementById('chat-messages');
+        cm.innerHTML = `<div class="flex gap-3 max-w-[85%]"><div class="w-9 h-9 rounded-xl bg-white flex items-center justify-center shrink-0 border border-gray-200 shadow-2xs"><i data-lucide="cpu" class="w-4 h-4 text-gray-500"></i></div><div class="bg-white rounded-2xl rounded-tl-xs p-4 shadow-2xs border border-gray-200/70"><p class="text-gray-800 font-semibold text-xs sm:text-sm">Chat cleared. Ask me anything about geological or mining data!</p></div></div>`;
+        const chips = document.getElementById('suggested-chips');
+        if (chips) chips.style.display = 'flex';
+        lucide.createIcons();
+    };
+
+    // ── Preset Prompts ────────────────────────────────────────────────────────
+    window.sendPresetPrompt = function(text) {
+        document.getElementById('chat-input').value = text;
+        window.handleChatSubmit(new Event('submit'));
+    };
+
+    // ── Real Report Generation ────────────────────────────────────────────────
+    window.triggerReportGeneration = async function() {
+        const type = document.getElementById('report-type-select')?.value || 'parliamentary';
+        const sub  = document.getElementById('report-subsidiary-select')?.value || 'All Consolidated';
+        const kw   = document.getElementById('report-keyword-input')?.value || '';
+        const pp   = document.getElementById('preview-paper');
+        if (!pp) return;
+
+        pp.innerHTML = `<div class="flex flex-col items-center justify-center h-48 gap-4"><div class="w-10 h-10 border-4 border-[#a3e635] border-t-transparent rounded-full animate-spin"></div><p class="text-sm font-bold text-gray-600">GeoAI compiling report...</p><p class="text-xs text-gray-400">This may take 15–30 seconds</p></div>`;
+
+        const startTime = Date.now();
+        try {
+            const res = await fetch(`${API}/api/generate-report`, {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ report_type: type, subsidiary: sub, keywords: kw })
+            });
+            const d = await res.json();
+            if (res.ok && d.status === 'ok') {
+                const elapsed = ((Date.now()-startTime)/1000).toFixed(1);
+                const m = d.metadata || {};
+                const body = (d.report||'')
+                    .replace(/\n\n/g,'</p><p class="mb-2 text-xs leading-relaxed">')
+                    .replace(/^## (.+)$/gm,'<h3 class="font-black text-xs uppercase tracking-wide text-[#111111] mt-4 mb-2 border-b border-gray-200 pb-1">$1</h3>')
+                    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
+                    .replace(/^- (.+)$/gm,'<li class="ml-4 list-disc text-xs leading-relaxed">$1</li>');
+
+                pp.innerHTML = `
+                    <div class="text-center mb-5 pb-4 border-b-2 border-[#111111]">
+                        <p class="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">Government of India — Ministry of Coal</p>
+                        <h2 class="text-base font-black text-[#111111] uppercase tracking-tight">Central Mine Planning & Design Institute</h2>
+                        <div class="mt-3 flex justify-center gap-2 flex-wrap">
+                            <span class="px-3 py-1 bg-[#eefcce] border border-[#d9f99d] rounded-full text-[10px] font-black text-[#3f6212]">${m.label||'Report'}</span>
+                            <span class="px-3 py-1 bg-gray-100 rounded-full text-[10px] font-bold text-gray-600">${sub}</span>
+                            <span class="px-3 py-1 bg-gray-100 rounded-full text-[10px] font-bold text-gray-500">${m.generated_at||''}</span>
+                            <span class="px-3 py-1 bg-[#f7fee7] rounded-full text-[10px] font-black text-[#65a30d]">Generated in ${elapsed}s</span>
+                        </div>
+                    </div>
+                    <div class="text-xs leading-relaxed text-gray-800">
+                        <p class="mb-2">${body}</p>
+                    </div>
+                    <div class="mt-4 pt-3 border-t border-gray-100 text-[10px] text-gray-400 font-bold flex items-center gap-2">
+                        <i data-lucide="cpu" class="w-3 h-3 text-[#84cc16]"></i>
+                        AI Compiled from ${(m.sources_used||[]).length} indexed documents using gemini-3.6-flash
+                    </div>`;
+                lucide.createIcons();
+                alertBox('Report compiled in ' + elapsed + 's!');
+            } else {
+                pp.innerHTML = `<p class="text-red-600 font-bold text-sm py-8 text-center">${d.detail || 'Upload documents first, then generate reports.'}</p>`;
+            }
+        } catch(e) {
+            pp.innerHTML = `<p class="text-red-600 font-bold text-sm py-8 text-center">Backend offline. Start server first.</p>`;
+        }
+    };
+
+    // ── Upload Modal — Ministry users cannot upload (admin only) ─────────────
+    window.openAddDataModal = function() {
+        alertBox('Only Admin can upload documents. Please contact admin.cmpdi@gov.in');
+    };
+
+    // ── Word Cloud keyword → real query ───────────────────────────────────────
+    window.selectKeyword = function(kw) {
+        location.hash = '#query';
+        setTimeout(() => {
+            document.getElementById('chat-input').value = `Tell me about ${kw} from the indexed documents`;
+            window.handleChatSubmit(new Event('submit'));
+        }, 200);
+    };
+
+    // ── Override handleLogin for user page (should not be needed but safety) ─
+    window.handleLogin = function(e) {
+        e.preventDefault();
+        window.location.href = '/';
+    };
+    </script>
+
+    <!-- Leaflet & MarkerCluster JS CDN -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+    <!-- ================= SPATIAL MINE MAP INTELLIGENCE LOGIC ================= -->
+    <script>
+    (function() {
+        let map = null;
+        let clusterGroup = null;
+        let selectedMineId = null;
+        let currentTab = 'document';
+        let currentReportId = null;
+        let searchTimeout = null;
+        let currentMineData = null;
+        let currentReportsList = [];
+
+        function mineIcon(type) {
+            const colors = {
+                'Opencast': '#f59e0b',
+                'Underground': '#3b82f6',
+                'Mixed': '#8b5cf6'
+            };
+            const color = colors[type] || '#a3e635';
+            return L.divIcon({
+                className: 'mine-pin-container',
+                html: `
+                    <div class="mine-pin-wrapper">
+                        <svg class="mine-pin-svg" viewBox="0 0 26 36" width="26" height="36" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M13 0C5.82 0 0 5.82 0 13C0 22.75 11.5 34.6 12.35 35.45C12.72 35.82 13.28 35.82 13.65 35.45C14.5 34.6 26 22.75 26 13C26 5.82 20.18 0 13 0Z" fill="${color}" stroke="#ffffff" stroke-width="1.5" />
+                            <circle cx="13" cy="13" r="5" fill="#ffffff"/>
+                            <circle cx="13" cy="13" r="2.5" fill="${color}"/>
+                        </svg>
+                        <div class="mine-pin-pulse"></div>
+                    </div>
+                `,
+                iconSize: [26, 36],
+                iconAnchor: [13, 36],
+                popupAnchor: [0, -36],
+                tooltipAnchor: [0, -36]
+            });
+        }
+
+        window.initMineMap = function() {
+            const mapEl = document.getElementById('map');
+            if (!mapEl || map) return;
+
+            map = L.map(mapEl, {
+                center: [22.5, 82.5],
+                zoom: 5,
+                zoomControl: true,
+                scrollWheelZoom: true
+            });
+            window.mineMap = map;
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 18
+            }).addTo(map);
+
+            clusterGroup = L.markerClusterGroup({
+                maxClusterRadius: 45,
+                spiderfyOnMaxZoom: true,
+                showCoverageOnHover: false,
+                iconCreateFunction: function(cluster) {
+                    const count = cluster.getChildCount();
+                    let size = count > 20 ? 46 : count > 8 ? 38 : 32;
+                    return L.divIcon({
+                        html: `<div style="
+                            display:flex;align-items:center;justify-content:center;
+                            width:${size}px;height:${size}px;border-radius:50%;
+                            background:#111111;color:#a3e635;font-weight:900;
+                            font-size:${size > 40 ? 13 : 11}px;font-family:Inter,sans-serif;
+                            box-shadow:0 6px 16px rgba(0,0,0,0.3);border:2.5px solid #a3e635;
+                        ">${count}</div>`,
+                        className: '',
+                        iconSize: [size, size]
+                    });
+                }
+            });
+            map.addLayer(clusterGroup);
+
+            loadMineStats();
+            loadMines();
+        };
+
+        window.loadMineStats = async function() {
+            try {
+                const resp = await fetch('/api/mines/stats');
+                const stats = await resp.json();
+                if (stats.status === 'ok') {
+                    const elMines = document.getElementById('map-stat-mines');
+                    const elReps = document.getElementById('map-stat-reports');
+                    const elStates = document.getElementById('map-stat-states');
+                    const elDashCount = document.getElementById('dash-mines-count');
+
+                    if (elMines) elMines.textContent = stats.mine_count;
+                    if (elReps) elReps.textContent = stats.report_count;
+                    if (elStates) elStates.textContent = stats.states.length;
+                    if (elDashCount) elDashCount.textContent = stats.mine_count;
+
+                    // Populate filters
+                    const subSelect = document.getElementById('filter-subsidiary');
+                    if (subSelect && subSelect.options.length <= 1) {
+                        stats.subsidiaries.forEach(s => {
+                            subSelect.add(new Option(s, s));
+                        });
+                    }
+
+                    const typeSelect = document.getElementById('filter-type');
+                    if (typeSelect && typeSelect.options.length <= 1) {
+                        stats.types.forEach(t => {
+                            typeSelect.add(new Option(t, t));
+                        });
+                    }
+
+                    const stateSelect = document.getElementById('filter-state');
+                    if (stateSelect && stateSelect.options.length <= 1) {
+                        stats.states.forEach(st => {
+                            stateSelect.add(new Option(st, st));
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load mine stats:', err);
+            }
+        };
+
+        window.loadMines = async function() {
+            const params = new URLSearchParams();
+            const sub = document.getElementById('filter-subsidiary')?.value;
+            const typ = document.getElementById('filter-type')?.value;
+            const st = document.getElementById('filter-state')?.value;
+            const q = document.getElementById('map-search')?.value?.trim();
+
+            if (sub) params.set('subsidiary', sub);
+            if (typ) params.set('type', typ);
+            if (st) params.set('state', st);
+            if (q) params.set('search', q);
+
+            const countEl = document.getElementById('map-visible-count');
+            if (countEl) countEl.textContent = 'Updating mines...';
+
+            try {
+                const resp = await fetch(`/api/mines?${params.toString()}`);
+                const geojson = await resp.json();
+                const features = geojson.features || [];
+
+                if (clusterGroup) {
+                    clusterGroup.clearLayers();
+                    features.forEach(f => {
+                        const [lng, lat] = f.geometry.coordinates;
+                        const p = f.properties;
+                        const marker = L.marker([lat, lng], { icon: mineIcon(p.type) });
+
+                        const subBadgeClass = 'sub-' + (p.subsidiary || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+                        marker.bindTooltip(`
+                            <div class="mine-pin-label">
+                                <span class="mine-pin-name">${esc(p.name)}</span>
+                                <span class="mine-pin-tag ${subBadgeClass}">${esc(p.subsidiary || 'CIL')}</span>
+                            </div>
+                        `, {
+                            permanent: false,
+                            direction: 'top',
+                            offset: [0, -34],
+                            className: 'mine-tooltip-custom',
+                            opacity: 1
+                        });
+
+                        marker.bindPopup(`
+                            <div class="mine-popup">
+                                <h3>${esc(p.name)}</h3>
+                                <p><strong>Subsidiary:</strong> ${esc(p.subsidiary)}</p>
+                                <p><strong>Location:</strong> ${esc(p.district ? p.district + ', ' : '')}${esc(p.state)}</p>
+                                <p><strong>Type:</strong> ${esc(p.type)}</p>
+                                <button class="popup-btn" onclick="window.selectMine('${p.mine_id}')">
+                                    View Reports & Documents →
+                                </button>
+                            </div>
+                        `, { maxWidth: 260 });
+
+                        marker.on('click', () => {
+                            window.selectMine(p.mine_id);
+                        });
+
+                        clusterGroup.addLayer(marker);
+                    });
+                }
+
+                if (countEl) countEl.textContent = `${features.length} mines visible`;
+            } catch (err) {
+                console.error('Failed to load mines:', err);
+                if (countEl) countEl.textContent = 'Error loading mines';
+            }
+        };
+
+        window.handleMapFilterChange = function() {
+            loadMines();
+        };
+
+        window.debounceMapSearch = function() {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(loadMines, 350);
+        };
+
+        window.resetMapFilters = function() {
+            const sub = document.getElementById('filter-subsidiary');
+            const typ = document.getElementById('filter-type');
+            const st = document.getElementById('filter-state');
+            const search = document.getElementById('map-search');
+            if (sub) sub.value = '';
+            if (typ) typ.value = '';
+            if (st) st.value = '';
+            if (search) search.value = '';
+            loadMines();
+        };
+
+        window.selectMine = async function(mineId) {
+            selectedMineId = mineId;
+            currentReportId = null;
+            const previewEl = document.getElementById('previewContent');
+            if (!previewEl) return;
+
+            previewEl.innerHTML = `
+                <div class="h-full flex flex-col items-center justify-center p-8 text-center">
+                    <div class="w-10 h-10 border-4 border-[#a3e635] border-t-transparent rounded-full animate-spin mb-3"></div>
+                    <p class="text-xs font-bold text-gray-500">Loading mine intelligence & reports...</p>
+                </div>
+            `;
+
+            try {
+                const [mineResp, repsResp] = await Promise.all([
+                    fetch(`/api/mines/${mineId}`),
+                    fetch(`/api/mines/${mineId}/reports`)
+                ]);
+                currentMineData = await mineResp.json();
+                const repsData = await repsResp.json();
+                currentReportsList = repsData.reports || [];
+
+                const badgeEl = document.getElementById('preview-rep-badge');
+                if (badgeEl) badgeEl.textContent = currentReportsList.length;
+
+                renderPreview();
+                if (map) map.closePopup();
+            } catch (err) {
+                console.error('Failed to load mine preview:', err);
+                previewEl.innerHTML = '<p class="text-red-500 p-6 text-xs font-bold">Failed to load mine data.</p>';
+            }
+        };
+
+        window.switchPreviewTab = function(tabName) {
+            currentTab = tabName;
+            const docBtn = document.getElementById('tab-doc-btn');
+            const repBtn = document.getElementById('tab-rep-btn');
+            if (tabName === 'document') {
+                if (docBtn) { docBtn.className = 'px-3 py-1 rounded-lg text-xs font-extrabold transition-all bg-[#111111] text-white'; }
+                if (repBtn) { repBtn.className = 'px-3 py-1 rounded-lg text-xs font-extrabold transition-all text-gray-600 hover:text-black'; }
+            } else {
+                if (docBtn) { docBtn.className = 'px-3 py-1 rounded-lg text-xs font-extrabold transition-all text-gray-600 hover:text-black'; }
+                if (repBtn) { repBtn.className = 'px-3 py-1 rounded-lg text-xs font-extrabold transition-all bg-[#111111] text-white'; }
+            }
+            renderPreview();
+        };
+
+        function renderPreview() {
+            const previewEl = document.getElementById('previewContent');
+            if (!previewEl || !currentMineData) return;
+
+            const m = currentMineData;
+            const reps = currentReportsList;
+            const subBadgeClass = 'sub-' + (m.subsidiary || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+            let html = `
+                <div class="space-y-4">
+                    <!-- Mine Header Card -->
+                    <div class="bg-white rounded-2xl p-4 border border-gray-200 shadow-2xs">
+                        <div class="flex items-start justify-between gap-2 mb-2">
+                            <div>
+                                <span class="mine-pin-tag ${subBadgeClass} inline-block mb-1">${esc(m.subsidiary)}</span>
+                                <h3 class="text-base font-black text-[#111111] leading-tight">${esc(m.name)}</h3>
+                                <p class="text-xs text-gray-500 font-semibold">${esc(m.district ? m.district + ', ' : '')}${esc(m.state)}</p>
+                            </div>
+                            <span class="px-2.5 py-1 rounded-full text-[10px] font-extrabold ${m.type === 'Opencast' ? 'bg-amber-100 text-amber-800 border border-amber-200' : m.type === 'Underground' ? 'bg-blue-100 text-blue-800 border border-blue-200' : 'bg-purple-100 text-purple-800 border border-purple-200'}">
+                                ${esc(m.type)}
+                            </span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-[10px] text-gray-400 font-bold pt-2 border-t border-gray-100">
+                            <div>Coordinates: <span class="text-gray-700 font-semibold">${m.latitude ? m.latitude.toFixed(4) : ''}, ${m.longitude ? m.longitude.toFixed(4) : ''}</span></div>
+                            <div class="text-right">Mine ID: <span class="text-gray-700 font-mono">${esc(m.mine_id)}</span></div>
+                        </div>
+
+                        <!-- Cross-System Action Bridges -->
+                        <div class="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-gray-100">
+                            <button onclick="queryMineAI('${esc(m.name)}', '${esc(m.subsidiary)}')" class="px-3 py-2 bg-[#111111] hover:bg-black text-[#a3e635] rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all shadow-xs hover:scale-[1.02] active:scale-95">
+                                <i data-lucide="bot" class="w-3.5 h-3.5"></i>
+                                <span>Query AI on Mine</span>
+                            </button>
+                            <button onclick="compileMineReport('${esc(m.name)}', '${esc(m.subsidiary)}')" class="px-3 py-2 bg-[#eefcce] hover:bg-[#d9f99d] text-[#111111] rounded-xl text-xs font-extrabold flex items-center justify-center gap-1.5 transition-all border border-[#d9f99d] hover:scale-[1.02] active:scale-95">
+                                <i data-lucide="file-check-2" class="w-3.5 h-3.5 text-[#84cc16]"></i>
+                                <span>Compile Report</span>
+                            </button>
+                        </div>
+                    </div>
+            `;
+
+            if (currentTab === 'reports') {
+                html += `
+                    <div class="space-y-2">
+                        <div class="text-xs font-extrabold text-gray-700 px-1">Archived Institutional Reports (${reps.length})</div>
+                `;
+                if (reps.length === 0) {
+                    html += '<p class="text-xs text-gray-400 p-4 bg-white rounded-xl text-center">No historical reports archived for this mine node.</p>';
+                } else {
+                    reps.forEach(r => {
+                        html += `
+                            <div onclick="window.loadReportDocument('${r.report_id}')" class="p-3.5 bg-white hover:bg-gray-50 rounded-2xl border border-gray-200/80 cursor-pointer transition-all hover:border-[#a3e635] shadow-2xs group">
+                                <div class="flex items-start justify-between gap-2 mb-1">
+                                    <h4 class="text-xs font-extrabold text-[#111111] group-hover:text-black">${esc(r.title)}</h4>
+                                    <span class="px-2 py-0.5 bg-gray-100 rounded-md text-[10px] font-black text-gray-700 shrink-0">${r.year}</span>
+                                </div>
+                                <div class="flex items-center justify-between text-[11px] text-gray-400 font-semibold">
+                                    <span>${esc(r.format || 'Report')}</span>
+                                    <span class="text-[#84cc16] font-bold">Confidence: ${(r.confidence_score * 100).toFixed(0)}%</span>
+                                </div>
+                            </div>
+                        `;
+                    });
+                }
+                html += '</div>';
+            } else {
+                // Document View Tab
+                if (reps.length > 0) {
+                    const activeRepId = currentReportId || reps[0].report_id;
+                    html += `
+                        <!-- Reports Switcher Pills -->
+                        <div class="space-y-1.5">
+                            <div class="text-[11px] font-extrabold text-gray-500 uppercase tracking-wider px-1">Available Document Records:</div>
+                            <div class="flex flex-wrap gap-1.5">
+                    `;
+                    reps.forEach(r => {
+                        const isSel = r.report_id === activeRepId;
+                        html += `
+                            <button onclick="window.loadReportDocument('${r.report_id}')" class="px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all ${isSel ? 'bg-[#111111] text-[#a3e635] shadow-xs' : 'bg-white hover:bg-gray-100 text-gray-700 border border-gray-200'}">
+                                ${r.year} · ${esc(r.format || 'Doc')}
+                            </button>
+                        `;
+                    });
+                    html += `
+                            </div>
+                        </div>
+                        <div id="docViewerContainer" class="mt-3">
+                            <div class="p-6 bg-white rounded-2xl border border-gray-200 text-center"><div class="w-6 h-6 border-2 border-[#a3e635] border-t-transparent rounded-full animate-spin mx-auto mb-2"></div><p class="text-xs text-gray-400 font-semibold">Loading document content...</p></div>
+                        </div>
+                    `;
+                    setTimeout(() => fetchReportContent(activeRepId), 30);
+                } else {
+                    html += '<div class="p-6 bg-white rounded-2xl border border-gray-200 text-center text-xs text-gray-400 font-bold">No documents available for preview.</div>';
+                }
+            }
+
+            // Matched ChromaDB indexed documents section
+            if (m.matched_documents && m.matched_documents.length > 0) {
+                html += `
+                    <div class="mt-4 p-4 bg-[#eefcce]/50 rounded-2xl border border-[#d9f99d]">
+                        <div class="flex items-center gap-2 text-xs font-black text-[#111111] mb-2">
+                            <i data-lucide="folder-check" class="w-4 h-4 text-[#84cc16]"></i>
+                            <span>Matched CMPDIPS Ingested Documents (${m.matched_documents.length})</span>
+                        </div>
+                        <div class="space-y-1">
+                `;
+                m.matched_documents.forEach(docName => {
+                    html += `
+                        <div class="text-[11px] font-bold text-gray-700 flex items-center justify-between bg-white px-3 py-1.5 rounded-xl border border-[#d9f99d]">
+                            <span>📄 ${esc(docName)}</span>
+                            <span class="text-[#84cc16] text-[10px]">Indexed in Vector DB</span>
+                        </div>
+                    `;
+                });
+                html += '</div></div>';
+            }
+
+            html += '</div>';
+            previewEl.innerHTML = html;
+            if (window.lucide) lucide.createIcons();
+        }
+
+        window.loadReportDocument = function(reportId) {
+            currentReportId = reportId;
+            switchPreviewTab('document');
+        };
+
+        async function fetchReportContent(reportId) {
+            const container = document.getElementById('docViewerContainer');
+            if (!container) return;
+            try {
+                const resp = await fetch(`/api/reports/${reportId}`);
+                const data = await resp.json();
+                container.innerHTML = `
+                    <div class="report-doc">
+                        ${data.content || '<p>No content available.</p>'}
+                    </div>
+                `;
+            } catch (err) {
+                container.innerHTML = '<p class="text-xs text-red-500 font-bold p-4">Failed to load report document.</p>';
+            }
+        }
+
+        window.queryMineAI = function(mineName, subsidiary) {
+            window.location.hash = '#query';
+            setTimeout(() => {
+                const input = document.getElementById('chat-input');
+                if (input) {
+                    input.value = `Provide a comprehensive intelligence summary for ${mineName} (${subsidiary}), including operational type, historical safety records, and production metrics.`;
+                    input.focus();
+                }
+            }, 250);
+        };
+
+        window.compileMineReport = function(mineName, subsidiary) {
+            window.location.hash = '#reports';
+            setTimeout(() => {
+                const keywordInput = document.getElementById('report-keyword-input');
+                if (keywordInput) keywordInput.value = mineName;
+
+                const subSelect = document.getElementById('report-subsidiary-select');
+                if (subSelect && subsidiary) {
+                    let matched = false;
+                    for (let opt of subSelect.options) {
+                        if (opt.value.toLowerCase().includes(subsidiary.toLowerCase()) || subsidiary.toLowerCase().includes(opt.value.toLowerCase())) {
+                            subSelect.value = opt.value;
+                            matched = true;
+                            break;
+                        }
+                    }
+                    if (!matched) {
+                        const opt = new Option(subsidiary, subsidiary);
+                        subSelect.add(opt);
+                        subSelect.value = subsidiary;
+                    }
+                }
+                if (typeof updateReportPreview === 'function') {
+                    updateReportPreview();
+                }
+            }, 250);
+        };
+
+        function esc(str) {
+            if (!str) return '';
+            const d = document.createElement('div');
+            d.textContent = str;
+            return d.innerHTML;
+        }
+
+        // Preload stats on initial load for dashboard live count
+        document.addEventListener('DOMContentLoaded', () => {
+            loadMineStats();
+        });
+    })();
+    </script>
+</body>
+</html>
