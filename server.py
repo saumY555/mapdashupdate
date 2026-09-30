@@ -11,7 +11,7 @@ from typing import Optional
 
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 from sqlalchemy import text
@@ -60,6 +60,7 @@ async def serve_main():
     ) if p.exists() else HTMLResponse("Not found", 404)
 
 @app.get("/admin", response_class=HTMLResponse)
+@app.get("/admin.html", response_class=HTMLResponse)
 async def serve_admin():
     p = FRONTEND_DIR / "admin.html"
     return HTMLResponse(
@@ -68,12 +69,41 @@ async def serve_admin():
     ) if p.exists() else HTMLResponse("Not found", 404)
 
 @app.get("/user", response_class=HTMLResponse)
+@app.get("/user.html", response_class=HTMLResponse)
 async def serve_user():
     p = FRONTEND_DIR / "user.html"
     return HTMLResponse(
         p.read_text(encoding="utf-8"),
         headers={"Cache-Control": "no-cache, no-store, must-revalidate", "Pragma": "no-cache", "Expires": "0"}
     ) if p.exists() else HTMLResponse("Not found", 404)
+
+@app.get("/avatar.jpg")
+async def serve_avatar():
+    p = FRONTEND_DIR / "avatar.jpg"
+    return FileResponse(p) if p.exists() else HTMLResponse("Not found", 404)
+
+@app.get("/bot-icon.jpg")
+@app.get("/bot-icon.png")
+async def serve_bot_icon():
+    p = FRONTEND_DIR / "bot-icon.png"
+    if not p.exists():
+        p = FRONTEND_DIR / "bot-icon.jpg"
+    return FileResponse(p) if p.exists() else HTMLResponse("Not found", 404)
+
+@app.get("/ai-assistant.jpg")
+async def serve_ai_assistant():
+    p = FRONTEND_DIR / "ai-assistant.jpg"
+    return FileResponse(p) if p.exists() else HTMLResponse("Not found", 404)
+
+@app.get("/insights-icon.png")
+async def serve_insights_icon():
+    p = FRONTEND_DIR / "insights-icon.png"
+    return FileResponse(p) if p.exists() else HTMLResponse("Not found", 404)
+
+@app.get("/insights-icon-active.png")
+async def serve_insights_icon_active():
+    p = FRONTEND_DIR / "insights-icon-active.png"
+    return FileResponse(p) if p.exists() else HTMLResponse("Not found", 404)
 
 # ── API Key ───────────────────────────────────────────────────────────────────
 class SetKeyRequest(BaseModel):
