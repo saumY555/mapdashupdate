@@ -1,50 +1,87 @@
 """
 embedder.py
-Generates dense vector embeddings for text using
-sentence-transformers (all-MiniLM-L6-v2) — runs fully locally, no API cost.
+Generates vector embeddings using Google Gemini's embedding API.
+- Zero local RAM usage (API call, no model loaded into server memory)
+- Uses gemini-embedding-001 model with output_dimensionality=768
+- Supports batch embedding
 """
 
-from sentence_transformers import SentenceTransformer
+import os
+import time
 from typing import List
-import numpy as np
+from google import genai
+from google.genai import types
 
-# Load model once at module level (cached after first load)
-_MODEL_NAME = "all-MiniLM-L6-v2"
-_model: SentenceTransformer | None = None
+EMBEDDING_MODEL = "gemini-embedding-001"
+EMBEDDING_DIM   = 768
+
+_client = None
 
 
-def _get_model() -> SentenceTransformer:
-    global _model
-    if _model is None:
-        _model = SentenceTransformer(_MODEL_NAME)
-    return _model
+def _get_client():
+    global _client
+    if _client is None:
+        from rag.gemini_client import get_api_key
+        api_key = get_api_key()
+        if not api_key:
+            raise ValueError("GEMINI_API_KEY not set.")
+        _client = genai.Client(api_key=api_key)
+    return _client
 
 
 def embed_texts(texts: List[str]) -> List[List[float]]:
     """
-    Generate embeddings for a list of text strings.
-
-    Args:
-        texts: List of strings to embed.
-
-    Returns:
-        List of embedding vectors (each a list of floats).
+    Embed a list of texts using Gemini gemini-embedding-001 (768 dim).
+    Batches automatically.
     """
-    model = _get_model()
-    embeddings = model.encode(texts, show_progress_bar=False, normalize_embeddings=True)
-    return embeddings.tolist()
+    client = _get_client()
+    results = []
+    batch_size = 20
+
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i: i + batch_size]
+        for attempt in range(3):
+            try:
+                response = client.models.embed_content(
+                    model=EMBEDDING_MODEL,
+                    contents=batch,
+                    config=types.EmbedContentConfig(
+                        task_type="RETRIEVAL_DOCUMENT",
+                        output_dimensionality=EMBEDDING_DIM,
+                    ),
+                )
+                for emb in response.embeddings:
+                    results.append(emb.values)
+                break
+            except Exception as e:
+                err = str(e).lower()
+                if "429" in err or "resource_exhausted" in err:
+                    time.sleep((attempt + 1) * 2)
+                    continue
+                raise
+    return results
 
 
 def embed_query(query: str) -> List[float]:
     """
-    Generate an embedding for a single query string.
-
-    Args:
-        query: The question or search string.
-
-    Returns:
-        Embedding vector as list of floats.
+    Embed a single query string using Gemini gemini-embedding-001 (768 dim).
     """
-    model = _get_model()
-    embedding = model.encode([query], normalize_embeddings=True)
-    return embedding[0].tolist()
+    client = _get_client()
+    for attempt in range(3):
+        try:
+            response = client.models.embed_content(
+                model=EMBEDDING_MODEL,
+                contents=[query],
+                config=types.EmbedContentConfig(
+                    task_type="RETRIEVAL_QUERY",
+                    output_dimensionality=EMBEDDING_DIM,
+                ),
+            )
+            return response.embeddings[0].values
+        except Exception as e:
+            err = str(e).lower()
+            if "429" in err or "resource_exhausted" in err:
+                time.sleep((attempt + 1) * 2)
+                continue
+            raise
+    raise RuntimeError("Gemini embedding failed after retries.")
