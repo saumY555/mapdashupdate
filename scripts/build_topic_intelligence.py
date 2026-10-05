@@ -1,0 +1,1081 @@
+import os
+import json
+
+ORIGINAL_HTML_PATH = 'c:/Users/LENOVO/Downloads/final_cmpdi/cmpdi-geoai-hub-main/original_render_index.html'
+
+with open(ORIGINAL_HTML_PATH, 'r', encoding='utf-8') as f:
+    html = f.read()
+
+# Build the complete new page-insights section with clean enterprise typography
+new_insights_html = '''
+                    <!-- ================= INSIGHTS VIEW (ADMIN) ================= -->
+                    <div id="page-insights" class="page-view flex-col space-y-6">
+                        <!-- Main Grid: Clean Radial Word Map + Detail Studio -->
+                        <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+                            
+                            <!-- LEFT/CENTER CARD: Interactive Radial Word Map -->
+                            <div class="xl:col-span-8 bg-white rounded-[2rem] border border-gray-200/80 card-elevate p-6 sm:p-7 flex flex-col justify-between">
+                                
+                                <!-- Card Header & Filters -->
+                                <div>
+                                    <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                                        <div>
+                                            <div class="flex items-center gap-2.5">
+                                                <h3 class="font-extrabold text-[#0f172a] text-base sm:text-lg tracking-tight">Interactive Word Map</h3>
+                                                <span class="px-2 py-0.5 bg-gray-100 text-gray-500 font-bold text-[9px] uppercase tracking-wider rounded border border-gray-200">Semantic Graph</span>
+                                                <span class="text-[10px] text-gray-400 font-semibold">• 1,284 Indexed Reports</span>
+                                            </div>
+                                            <p class="text-xs font-medium text-gray-400 mt-0.5">Explore high-frequency mining terms and discover relationships across indexed reports.</p>
+                                        </div>
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-[11px] font-bold text-gray-500 bg-gray-50 px-3 py-1.5 rounded-xl border border-gray-200/70 flex items-center gap-1.5">
+                                                <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Live Model
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Category Filter Bar (Clean Understated Style) -->
+                                    <div class="flex items-center gap-1.5 sm:gap-2 overflow-x-auto custom-scrollbar pb-2 pt-1 mb-2">
+                                        <button onclick="filterTopicCategory('all')" id="topic-filter-all" class="topic-cat-btn active-cat px-3 py-1.5 rounded-lg text-xs font-extrabold transition-all bg-[#0f172a] text-white shadow-2xs">All Documents</button>
+                                        <button onclick="filterTopicCategory('production')" id="topic-filter-production" class="topic-cat-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200/60 hover:text-[#0f172a]">Production</button>
+                                        <button onclick="filterTopicCategory('geological')" id="topic-filter-geological" class="topic-cat-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200/60 hover:text-[#0f172a]">Geological</button>
+                                        <button onclick="filterTopicCategory('environmental')" id="topic-filter-environmental" class="topic-cat-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200/60 hover:text-[#0f172a]">Environmental</button>
+                                        <button onclick="filterTopicCategory('safety')" id="topic-filter-safety" class="topic-cat-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200/60 hover:text-[#0f172a]">Safety &amp; Operations</button>
+                                        <button onclick="filterTopicCategory('exploration')" id="topic-filter-exploration" class="topic-cat-btn px-3 py-1.5 rounded-lg text-xs font-semibold transition-all bg-gray-50 hover:bg-gray-100 text-gray-600 border border-gray-200/60 hover:text-[#0f172a]">Exploration</button>
+                                    </div>
+                                </div>
+
+                                <!-- Radial Typographic Canvas Container (Clean Studio Aesthetic) -->
+                                <div id="radial-cloud-container" class="relative w-full h-[450px] sm:h-[490px] rounded-2xl bg-[#fafafa] border border-gray-200/70 overflow-hidden flex items-center justify-center select-none my-2">
+                                    
+                                    <!-- Ultra-subtle background guide lines -->
+                                    <svg class="absolute inset-0 w-full h-full pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+                                        <!-- 2 faint reference rings -->
+                                        <circle cx="50%" cy="50%" r="115" fill="none" stroke="#e2e8f0" stroke-width="0.75" stroke-dasharray="2,6" opacity="0.6" />
+                                        <circle cx="50%" cy="50%" r="200" fill="none" stroke="#e2e8f0" stroke-width="0.75" stroke-dasharray="2,6" opacity="0.4" />
+                                        
+                                        <!-- Dynamic Selective Connector Lines (Only drawn for active/selected topic) -->
+                                        <g id="radial-connector-lines"></g>
+                                    </svg>
+
+                                    <!-- Radial Word Nodes rendered dynamically as pure typography -->
+                                    <div id="radial-word-nodes-layer" class="absolute inset-0 w-full h-full pointer-events-auto"></div>
+
+                                    <!-- Floating Tooltip (Clean Minimalist Design) -->
+                                    <div id="radial-topic-tooltip" class="absolute z-30 pointer-events-none opacity-0 transition-opacity duration-150 bg-[#0f172a] text-white px-3.5 py-2.5 rounded-xl shadow-lg border border-slate-700 text-xs transform -translate-x-1/2 -translate-y-full mb-2 min-w-[160px]">
+                                        <div class="flex items-center justify-between border-b border-slate-700 pb-1 mb-1.5">
+                                            <h5 id="r-tooltip-title" class="font-bold text-white text-xs">Topic</h5>
+                                            <span id="r-tooltip-cat" class="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Category</span>
+                                        </div>
+                                        <div class="space-y-0.5 text-[11px] font-medium text-slate-300">
+                                            <div class="flex justify-between"><span>Occurrences:</span> <strong id="r-tooltip-occ" class="text-white font-bold">486</strong></div>
+                                            <div class="flex justify-between"><span>Relevance:</span> <strong id="r-tooltip-rel" class="text-emerald-400 font-bold">94.2%</strong></div>
+                                            <div class="flex justify-between"><span>Documents:</span> <strong id="r-tooltip-docs" class="text-white font-bold">173</strong></div>
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                                <!-- Card Footer & Minimal Understated Legend -->
+                                <div class="pt-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3 text-xs text-gray-500 font-medium">
+                                    <div class="flex items-center gap-4 flex-wrap text-[11px]">
+                                        <span class="font-bold text-gray-600">Categories:</span>
+                                        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#15803d]"></span> Production</span>
+                                        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#0284c7]"></span> Geological</span>
+                                        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#b45309]"></span> Environmental</span>
+                                        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#be123c]"></span> Safety</span>
+                                        <span class="flex items-center gap-1.5"><span class="w-2 h-2 rounded-full bg-[#0e7490]"></span> Exploration</span>
+                                    </div>
+                                    <div class="text-[10px] text-gray-400 font-semibold tracking-wider uppercase">
+                                        Size → Occurrence &bull; Position → Relevance &bull; Color → Category
+                                    </div>
+                                </div>
+
+                            </div>
+
+
+                            <!-- RIGHT CARD: Topic Detail Panel -->
+                            <div class="xl:col-span-4 bg-white rounded-[2rem] border border-gray-200/80 card-elevate p-6 sm:p-7 flex flex-col justify-between" id="topic-detail-card">
+                                
+                                <div class="space-y-4 sm:space-y-5">
+                                    <!-- Detail Header -->
+                                    <div class="border-b border-gray-100 pb-3.5">
+                                        <div class="flex items-center justify-between mb-1.5">
+                                            <span class="text-[10px] font-extrabold uppercase tracking-wider text-gray-400">TOPIC DETAIL</span>
+                                            <span id="detail-topic-badge" class="px-2.5 py-0.5 bg-gray-100 text-gray-700 border border-gray-200 rounded font-bold text-[10px] uppercase">Mining Operations</span>
+                                        </div>
+                                        <div class="flex items-center justify-between">
+                                            <h3 id="detail-topic-name" class="text-xl sm:text-2xl font-black text-[#0f172a] tracking-tight">Overburden</h3>
+                                            <button onclick="focusTopicInCloud(currentSelectedTopicKey)" title="Focus in Word Map" class="w-7 h-7 rounded-lg bg-gray-50 hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-[#0f172a] transition-all border border-gray-200/60">
+                                                <i data-lucide="crosshair" class="w-3.5 h-3.5"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Key Metrics Grid -->
+                                    <div class="grid grid-cols-2 gap-2.5">
+                                        <div class="p-3 rounded-xl bg-gray-50/80 border border-gray-200/60">
+                                            <div class="text-[10px] font-bold uppercase text-gray-400 tracking-wider">Occurrences</div>
+                                            <div id="detail-topic-occ" class="text-lg font-black text-[#0f172a] mt-0.5">486</div>
+                                        </div>
+                                        <div class="p-3 rounded-xl bg-gray-50/80 border border-gray-200/60">
+                                            <div class="text-[10px] font-bold uppercase text-gray-400 tracking-wider">Documents</div>
+                                            <div id="detail-topic-docs" class="text-lg font-black text-[#0f172a] mt-0.5">173</div>
+                                        </div>
+                                        <div class="p-3 rounded-xl bg-gray-50/80 border border-gray-200/60">
+                                            <div class="text-[10px] font-bold uppercase text-gray-400 tracking-wider">Relevance</div>
+                                            <div id="detail-topic-rel" class="text-lg font-black text-[#0f172a] mt-0.5">94.2%</div>
+                                        </div>
+                                        <div class="p-3 rounded-xl bg-gray-50/80 border border-gray-200/60">
+                                            <div class="text-[10px] font-bold uppercase text-gray-400 tracking-wider">Category</div>
+                                            <div id="detail-topic-cat" class="text-xs font-black text-[#0f172a] mt-1 truncate">Mining Operations</div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Trend of Occurrence Chart -->
+                                    <div>
+                                        <div class="flex items-center justify-between mb-1.5">
+                                            <h4 class="text-xs font-bold uppercase tracking-wider text-gray-700">Trend of Occurrence</h4>
+                                            <!-- Time Range Filters -->
+                                            <div class="flex items-center gap-1 bg-gray-100 p-0.5 rounded-lg text-[10px] font-bold text-gray-500">
+                                                <button onclick="setTrendTimeRange('1Y')" id="trend-range-1Y" class="trend-btn px-2 py-0.5 rounded hover:text-[#0f172a]">1Y</button>
+                                                <button onclick="setTrendTimeRange('3Y')" id="trend-range-3Y" class="trend-btn active-range px-2 py-0.5 rounded bg-white text-[#0f172a] shadow-2xs font-extrabold">3Y</button>
+                                                <button onclick="setTrendTimeRange('5Y')" id="trend-range-5Y" class="trend-btn px-2 py-0.5 rounded hover:text-[#0f172a]">5Y</button>
+                                                <button onclick="setTrendTimeRange('ALL')" id="trend-range-ALL" class="trend-btn px-2 py-0.5 rounded hover:text-[#0f172a]">ALL</button>
+                                            </div>
+                                        </div>
+                                        <div class="h-28 w-full bg-white rounded-xl p-2 border border-gray-200/70 relative">
+                                            <canvas id="topicTrendCanvas" class="w-full h-full"></canvas>
+                                        </div>
+                                    </div>
+
+                                    <!-- Related Topics (Clickable minimal chips) -->
+                                    <div>
+                                        <h4 class="text-xs font-bold uppercase tracking-wider text-gray-700 mb-1.5">Related Topics</h4>
+                                        <div id="detail-related-chips" class="flex flex-wrap gap-1.5">
+                                            <!-- Related chips rendered dynamically -->
+                                        </div>
+                                    </div>
+
+                                    <!-- AI Insight -->
+                                    <div class="p-3 bg-gray-50/90 rounded-xl border border-gray-200/70">
+                                        <div class="flex items-center gap-1.5 text-[10px] font-bold uppercase text-gray-500 tracking-wider mb-1">
+                                            <i data-lucide="sparkles" class="w-3.5 h-3.5 text-emerald-600"></i> AI Insight
+                                        </div>
+                                        <p id="detail-ai-insight" class="text-xs font-medium text-gray-800 leading-relaxed">
+                                            "Overburden is frequently associated with stripping ratio, excavation and production planning across the analyzed reports."
+                                        </p>
+                                    </div>
+
+                                    <!-- Document Context -->
+                                    <div class="p-3 bg-gray-50/60 rounded-xl border border-gray-200/60 space-y-1.5 text-xs">
+                                        <div class="flex justify-between items-center">
+                                            <span class="text-gray-500 font-medium">Most Common In</span>
+                                            <strong id="detail-context-common" class="text-[#0f172a] font-bold">Production Reports</strong>
+                                        </div>
+                                        <div class="flex justify-between items-center pt-1 border-t border-gray-200/50">
+                                            <span class="text-gray-500 font-medium">Top Source</span>
+                                            <strong id="detail-context-source" class="text-[#0f172a] font-bold">Mine Performance Reports</strong>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Action Button: Query in Assistant / Load in Reports -->
+                                <div class="mt-4 pt-3 border-t border-gray-100 flex gap-2">
+                                    <button onclick="queryTopicInAssistant(currentSelectedTopicKey)" class="flex-1 py-2.5 bg-[#0f172a] text-white rounded-xl font-bold text-xs shadow-sm hover:bg-black active:scale-95 transition-all flex items-center justify-center gap-1.5">
+                                        <i data-lucide="bot" class="w-3.5 h-3.5"></i> <span>Query in GeoAI</span>
+                                    </button>
+                                    <button onclick="selectKeyword(currentSelectedTopicKey)" class="py-2.5 px-3.5 bg-gray-100 hover:bg-gray-200 text-[#0f172a] rounded-xl font-bold text-xs transition-all flex items-center justify-center gap-1.5" title="Load into Report Builder">
+                                        <i data-lucide="file-text" class="w-3.5 h-3.5"></i> <span>Build Report</span>
+                                    </button>
+                                </div>
+
+                            </div>
+
+                        </div>
+
+                        <!-- Enterprise Cluster Breakdown Row Below -->
+                        <div class="bg-white rounded-[2rem] p-6 sm:p-7 border border-gray-200/80 card-elevate">
+                            <div class="flex items-center justify-between mb-4">
+                                <div>
+                                    <h3 class="font-extrabold text-[#0f172a] text-base tracking-tight">Enterprise Cluster Breakdown</h3>
+                                    <p class="text-xs font-medium text-gray-400">Semantic density clusters analyzed across 1,284 technical repositories</p>
+                                </div>
+                                <span class="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500"><i data-lucide="layers" class="w-4 h-4"></i></span>
+                            </div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div onclick="selectTopicNode('Extraction')" class="p-4 rounded-xl bg-gray-50/70 hover:bg-white hover:shadow-sm transition-all cursor-pointer border border-gray-200/70">
+                                    <div class="flex justify-between items-center mb-1"><span class="font-bold text-xs text-[#0f172a]">Extraction &amp; Output</span><span class="text-[11px] font-bold text-emerald-700">42%</span></div>
+                                    <p class="text-[11px] text-gray-500 font-medium">High correlation with SECL &amp; MCL production logs.</p>
+                                </div>
+                                <div onclick="selectTopicNode('Reclamation')" class="p-4 rounded-xl bg-gray-50/70 hover:bg-white hover:shadow-sm transition-all cursor-pointer border border-gray-200/70">
+                                    <div class="flex justify-between items-center mb-1"><span class="font-bold text-xs text-[#0f172a]">Environmental &amp; Clearances</span><span class="text-[11px] font-bold text-amber-700">28%</span></div>
+                                    <p class="text-[11px] text-gray-500 font-medium">Environmental impact and NBWL forest clearance audits.</p>
+                                </div>
+                                <div onclick="selectTopicNode('Geological Reserve')" class="p-4 rounded-xl bg-gray-50/70 hover:bg-white hover:shadow-sm transition-all cursor-pointer border border-gray-200/70">
+                                    <div class="flex justify-between items-center mb-1"><span class="font-bold text-xs text-[#0f172a]">Geological Reserves &amp; Logs</span><span class="text-[11px] font-bold text-sky-700">30%</span></div>
+                                    <p class="text-[11px] text-gray-500 font-medium">Verified core seam depth &amp; borehole lithology metrics.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+'''
+
+# Find insights block in original_render_index.html and replace it
+insights_start = html.find('<!-- ================= INSIGHTS VIEW (ADMIN) ================= -->')
+if insights_start == -1:
+    insights_start = html.find('<div id="page-insights"')
+
+next_view_marker = '<!-- ================= AI QUERY STUDIO WITH CHAT HISTORY ================= -->'
+if next_view_marker not in html:
+    next_view_marker = '<!-- ========================================================================= -->'
+
+insights_end = html.find(next_view_marker, insights_start)
+
+if insights_start != -1 and insights_end != -1:
+    html = html[:insights_start] + new_insights_html + '\n                    ' + html[insights_end:]
+    print("Replaced #page-insights with clean enterprise visual structure")
+
+# Add the refined clean typographic JavaScript engine
+radial_cloud_js = '''
+    <!-- ================= MINING TOPIC INTELLIGENCE CLEAN TYPOGRAPHIC ENGINE ================= -->
+    <style>
+        .topic-word-node {
+            transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease-out, color 0.15s ease-out;
+            cursor: pointer;
+            white-space: nowrap;
+            user-select: none;
+        }
+        .topic-word-node:hover {
+            transform: translate(-50%, -50%) scale(1.1) !important;
+            z-index: 25 !important;
+        }
+        .topic-word-node.node-selected {
+            z-index: 30 !important;
+            transform: translate(-50%, -50%) scale(1.08) !important;
+        }
+        .topic-word-node.node-related {
+            z-index: 20 !important;
+            opacity: 1 !important;
+        }
+        .topic-word-node.node-dimmed {
+            opacity: 0.28 !important;
+            filter: grayscale(80%);
+        }
+    </style>
+
+    <script>
+        // ── TOPIC DATA REPOSITORY (24 Mining Terms with Organic Balanced Coordinates) ──
+        const MINING_TOPICS = {
+            'Extraction': {
+                name: 'Extraction',
+                category: 'production',
+                catLabel: 'Mining Operations',
+                occ: 720,
+                docs: 290,
+                rel: 99.0,
+                ring: 0,
+                angle: 0,
+                dx: 0, dy: 0,
+                related: ['Overburden', 'ROM Production', 'Stripping Ratio', 'Shovel-Dumper', 'Coal Seam'],
+                aiInsight: 'Extraction represents the primary operational metric across mechanised opencast pits with direct dispatch correlation.',
+                mostCommonIn: 'Production Reports',
+                topSource: 'Monthly Mining Dispatch Summaries',
+                trend: [48, 55, 62, 70, 85, 92, 110, 125, 140, 155, 170, 195]
+            },
+            'Coal Seam': {
+                name: 'Coal Seam',
+                category: 'geological',
+                catLabel: 'Geological Structure',
+                occ: 612,
+                docs: 248,
+                rel: 98.0,
+                ring: 1,
+                angle: 160,
+                dx: -110, dy: -50,
+                related: ['Seam Thickness', 'Seam Depth', 'Geological Reserve', 'Borehole', 'Ash Content'],
+                aiInsight: 'Coal Seam geometry and parting structures govern stripping sequences across the Jharia and Raniganj basins.',
+                mostCommonIn: 'Geological Memoirs',
+                topSource: 'CMPDI Exploration Bulletins',
+                trend: [40, 48, 52, 60, 68, 75, 88, 95, 105, 118, 130, 145]
+            },
+            'Overburden': {
+                name: 'Overburden',
+                category: 'production',
+                catLabel: 'Mining Operations',
+                occ: 486,
+                docs: 173,
+                rel: 94.2,
+                ring: 1,
+                angle: 30,
+                dx: 125, dy: -40,
+                related: ['Stripping Ratio', 'Dragline', 'Extraction', 'Shovel-Dumper', 'Seam Depth'],
+                aiInsight: 'Overburden is frequently associated with stripping ratio, excavation and production planning across the analyzed reports.',
+                mostCommonIn: 'Production Reports',
+                topSource: 'Mine Performance Reports',
+                trend: [30, 34, 42, 45, 58, 65, 72, 80, 88, 96, 112, 128]
+            },
+            'Geological Reserve': {
+                name: 'Geological Reserve',
+                category: 'geological',
+                catLabel: 'Geological Estimation',
+                occ: 430,
+                docs: 165,
+                rel: 92.0,
+                ring: 1,
+                angle: 215,
+                dx: -125, dy: 60,
+                related: ['Coal Seam', 'Recovery Factor', 'Borehole', 'Seam Thickness', 'Exploration'],
+                aiInsight: 'Reserve classifications (Proved, Indicated, Inferred) strictly follow Indian Standard Procedure guidelines in technical documentation.',
+                mostCommonIn: 'Reserve Estimates',
+                topSource: 'National Coal Inventory Reports',
+                trend: [25, 30, 35, 42, 48, 56, 62, 70, 78, 85, 94, 105]
+            },
+            'ROM Production': {
+                name: 'ROM Production',
+                category: 'production',
+                catLabel: 'Production Metrics',
+                occ: 410,
+                docs: 155,
+                rel: 91.0,
+                ring: 1,
+                angle: 90,
+                dx: 0, dy: 90,
+                related: ['Extraction', 'Beneficiation', 'Calorific Value', 'Recovery Factor', 'Overburden'],
+                aiInsight: 'Run-of-Mine extraction ledgers correlate with coal washery throughput and rapid loading silo dispatches.',
+                mostCommonIn: 'Monthly Production Logs',
+                topSource: 'CIL Consolidated Output Logs',
+                trend: [28, 32, 38, 45, 50, 58, 65, 73, 80, 89, 98, 110]
+            },
+            'Stripping Ratio': {
+                name: 'Stripping Ratio',
+                category: 'production',
+                catLabel: 'Mine Economics',
+                occ: 395,
+                docs: 148,
+                rel: 90.5,
+                ring: 1,
+                angle: 325,
+                dx: 110, dy: 65,
+                related: ['Overburden', 'Extraction', 'Dragline', 'Pit Geometry', 'Shovel-Dumper'],
+                aiInsight: 'Stripping ratio benchmarks establish economic cut-off limits across SECL, MCL, and CCL concessions.',
+                mostCommonIn: 'Feasibility Reports',
+                topSource: 'Annual Mine Cost Audits',
+                trend: [22, 28, 33, 39, 44, 52, 60, 67, 74, 82, 90, 102]
+            },
+            'Seam Thickness': {
+                name: 'Seam Thickness',
+                category: 'geological',
+                catLabel: 'Stratigraphy',
+                occ: 385,
+                docs: 142,
+                rel: 89.0,
+                ring: 2,
+                angle: 185,
+                dx: -195, dy: -25,
+                related: ['Coal Seam', 'Seam Depth', 'Borehole', 'Geological Reserve'],
+                aiInsight: 'Seam Thickness variability determines continuous miner applicability in deep underground horizons.',
+                mostCommonIn: 'Borehole Logs',
+                topSource: 'Exploration Drilling Summaries',
+                trend: [20, 24, 29, 35, 40, 47, 54, 60, 68, 75, 84, 95]
+            },
+            'Slope Stability': {
+                name: 'Slope Stability',
+                category: 'safety',
+                catLabel: 'Safety & Geotechnical',
+                occ: 360,
+                docs: 138,
+                rel: 88.0,
+                ring: 2,
+                angle: 350,
+                dx: 195, dy: -10,
+                related: ['Pit Geometry', 'Groundwater', 'Overburden', 'Drilling & Blasting'],
+                aiInsight: 'Continuous slope stability radar records prevent bench failure risks along highwall crests.',
+                mostCommonIn: 'Safety Audit Briefs',
+                topSource: 'DGMS Compliance Reviews',
+                trend: [19, 23, 28, 34, 40, 46, 53, 61, 69, 77, 86, 98]
+            },
+            'Groundwater': {
+                name: 'Groundwater',
+                category: 'environmental',
+                catLabel: 'Environmental Hydrology',
+                occ: 350,
+                docs: 136,
+                rel: 87.2,
+                ring: 2,
+                angle: 70,
+                dx: 70, dy: 155,
+                related: ['Slope Stability', 'Reclamation', 'Mine Ventilation', 'Subsidence'],
+                aiInsight: 'Hydro-geological modeling and sump dewatering protect working faces while sustaining regional aquifers.',
+                mostCommonIn: 'Environmental Clearances',
+                topSource: 'MoEFCC Impact Submissions',
+                trend: [17, 21, 26, 32, 38, 44, 51, 58, 66, 74, 83, 94]
+            },
+            'Seam Depth': {
+                name: 'Seam Depth',
+                category: 'geological',
+                catLabel: 'Stratigraphy',
+                occ: 340,
+                docs: 130,
+                rel: 86.5,
+                ring: 2,
+                angle: 125,
+                dx: -80, dy: -125,
+                related: ['Coal Seam', 'Overburden', 'Borehole', 'Pit Geometry'],
+                aiInsight: 'Depth contour mapping indicates economic transitions from opencast benches to underground horizons.',
+                mostCommonIn: 'Geological Folios',
+                topSource: 'CMPDI Regional Basins',
+                trend: [18, 22, 26, 31, 36, 42, 48, 55, 62, 70, 78, 88]
+            },
+            'Drilling & Blasting': {
+                name: 'Drilling & Blasting',
+                category: 'safety',
+                catLabel: 'Mine Operations',
+                occ: 330,
+                docs: 125,
+                rel: 85.0,
+                ring: 2,
+                angle: 300,
+                dx: 100, dy: -130,
+                related: ['Overburden', 'Shovel-Dumper', 'Slope Stability', 'Extraction'],
+                aiInsight: 'Controlled blast initiation with electronic delay detonators minimizes ground vibration and backbreak.',
+                mostCommonIn: 'Operational Logs',
+                topSource: 'Mine Safety & Blasting Audits',
+                trend: [16, 20, 24, 29, 34, 40, 47, 54, 61, 69, 78, 89]
+            },
+            'Shovel-Dumper': {
+                name: 'Shovel-Dumper',
+                category: 'production',
+                catLabel: 'Heavy Earth Moving Machinery',
+                occ: 320,
+                docs: 122,
+                rel: 85.0,
+                ring: 2,
+                angle: 25,
+                dx: 190, dy: -90,
+                related: ['Overburden', 'Extraction', 'Stripping Ratio', 'Dragline'],
+                aiInsight: 'HEMM equipment matching ratios dictate shovel cycle times and haul road traffic densities.',
+                mostCommonIn: 'Equipment Logs',
+                topSource: 'HEMM Performance Reviews',
+                trend: [14, 18, 22, 27, 32, 38, 45, 52, 59, 67, 76, 86]
+            },
+            'Borehole': {
+                name: 'Borehole',
+                category: 'exploration',
+                catLabel: 'Exploration Survey',
+                occ: 310,
+                docs: 118,
+                rel: 84.0,
+                ring: 2,
+                angle: 235,
+                dx: -75, dy: 155,
+                related: ['Exploration', 'Coal Seam', 'Ash Content', 'Geological Reserve'],
+                aiInsight: 'Core drill logs establish proximate analysis values, seam splits, and structural fault boundaries.',
+                mostCommonIn: 'Drilling Archives',
+                topSource: 'Geological Survey Documentation',
+                trend: [15, 19, 23, 28, 33, 38, 44, 50, 56, 64, 72, 82]
+            },
+            'Exploration': {
+                name: 'Exploration',
+                category: 'exploration',
+                catLabel: 'Geological Exploration',
+                occ: 295,
+                docs: 110,
+                rel: 81.0,
+                ring: 3,
+                angle: 145,
+                dx: -190, dy: -115,
+                related: ['Borehole', 'Geological Reserve', 'Coal Seam', 'Recovery Factor'],
+                aiInsight: 'Detailed 2D seismic exploration and non-coring validation delineate virgin coal block boundaries.',
+                mostCommonIn: 'Geological Reports',
+                topSource: 'National Mineral Exploration Trust',
+                trend: [14, 17, 21, 26, 31, 36, 42, 49, 56, 64, 73, 83]
+            },
+            'Mine Ventilation': {
+                name: 'Mine Ventilation',
+                category: 'safety',
+                catLabel: 'Underground Safety',
+                occ: 290,
+                docs: 112,
+                rel: 81.5,
+                ring: 3,
+                angle: 270,
+                dx: 0, dy: -185,
+                related: ['Slope Stability', 'Groundwater', 'Mine Closure', 'Extraction'],
+                aiInsight: 'Continuous airflow monitoring and methane drainage safeguards gassy underground workings.',
+                mostCommonIn: 'Safety Audits',
+                topSource: 'DGMS Inspection Reports',
+                trend: [13, 16, 20, 24, 29, 34, 40, 47, 54, 61, 70, 80]
+            },
+            'Dragline': {
+                name: 'Dragline',
+                category: 'production',
+                catLabel: 'Heavy Earth Moving Machinery',
+                occ: 280,
+                docs: 105,
+                rel: 80.0,
+                ring: 3,
+                angle: 45,
+                dx: 220, dy: 75,
+                related: ['Overburden', 'Stripping Ratio', 'Shovel-Dumper', 'Extraction'],
+                aiInsight: 'High-capacity walking draglines perform primary side-casting in mega-opencast mines like Gevra and Nigahi.',
+                mostCommonIn: 'Heavy Equipment Logs',
+                topSource: 'Dragline Utilization Ledgers',
+                trend: [12, 15, 19, 23, 27, 32, 38, 44, 51, 58, 66, 75]
+            },
+            'Reclamation': {
+                name: 'Reclamation',
+                category: 'environmental',
+                catLabel: 'Environmental Restoration',
+                occ: 275,
+                docs: 102,
+                rel: 79.0,
+                ring: 3,
+                angle: 20,
+                dx: 155, dy: 155,
+                related: ['Mine Closure', 'Groundwater', 'Subsidence', 'Overburden'],
+                aiInsight: 'Technical regrading and biological afforestation transform decommissioned dumps into restored eco-zones.',
+                mostCommonIn: 'Sustainability Reports',
+                topSource: 'CMPDI Remote Sensing Land Restorations',
+                trend: [11, 14, 18, 22, 27, 32, 38, 44, 51, 58, 66, 75]
+            },
+            'Ash Content': {
+                name: 'Ash Content',
+                category: 'safety',
+                catLabel: 'Coal Quality & Chemistry',
+                occ: 270,
+                docs: 104,
+                rel: 78.5,
+                ring: 3,
+                angle: 210,
+                dx: -220, dy: 70,
+                related: ['Calorific Value', 'Beneficiation', 'Coal Seam', 'Borehole'],
+                aiInsight: 'Proximate analysis parameters establish coal grade certification (G1 to G17) inverse to inherent mineral matter.',
+                mostCommonIn: 'Coal Quality Certificates',
+                topSource: 'CMPDI Central Quality Lab',
+                trend: [11, 14, 18, 22, 26, 31, 36, 42, 49, 56, 64, 73]
+            },
+            'Calorific Value': {
+                name: 'Calorific Value',
+                category: 'safety',
+                catLabel: 'Coal Quality & Chemistry',
+                occ: 265,
+                docs: 100,
+                rel: 77.8,
+                ring: 3,
+                angle: 245,
+                dx: -160, dy: 165,
+                related: ['Ash Content', 'Beneficiation', 'ROM Production', 'Coal Seam'],
+                aiInsight: 'Gross Calorific Value sampling determines fuel supply agreement compliance for power utilities.',
+                mostCommonIn: 'Commercial Coal Dispatches',
+                topSource: 'Third-Party Sampling Audits',
+                trend: [10, 13, 17, 21, 25, 30, 35, 41, 47, 54, 62, 71]
+            },
+            'Subsidence': {
+                name: 'Subsidence',
+                category: 'environmental',
+                catLabel: 'Geotechnical & Environment',
+                occ: 260,
+                docs: 98,
+                rel: 77.0,
+                ring: 3,
+                angle: 120,
+                dx: -160, dy: 120,
+                related: ['Reclamation', 'Groundwater', 'Mine Closure', 'Seam Depth'],
+                aiInsight: 'Surface strata deformation monitoring ensures longwall caving preserves overlying surface structures.',
+                mostCommonIn: 'Environmental Monitoring',
+                topSource: 'Mine Safety & Strata Records',
+                trend: [10, 13, 16, 20, 24, 29, 34, 40, 46, 53, 61, 70]
+            },
+            'Pit Geometry': {
+                name: 'Pit Geometry',
+                category: 'safety',
+                catLabel: 'Mine Design',
+                occ: 250,
+                docs: 95,
+                rel: 76.0,
+                ring: 3,
+                angle: 315,
+                dx: 215, dy: -155,
+                related: ['Slope Stability', 'Stripping Ratio', 'Seam Depth', 'Overburden'],
+                aiInsight: 'Haul road switchback radii and bench widths are calculated to safely accommodate 240T dumpers.',
+                mostCommonIn: 'Mine Planning Reports',
+                topSource: 'CMPDI Mine Design Directorate',
+                trend: [9, 12, 15, 19, 23, 28, 33, 39, 45, 52, 60, 68]
+            },
+            'Recovery Factor': {
+                name: 'Recovery Factor',
+                category: 'production',
+                catLabel: 'Resource Efficiency',
+                occ: 240,
+                docs: 92,
+                rel: 78.0,
+                ring: 3,
+                angle: 100,
+                dx: -215, dy: 25,
+                related: ['Geological Reserve', 'Extraction', 'Coal Seam', 'ROM Production'],
+                aiInsight: 'Mechanized surface mining yields over 90% resource extraction compared to 55-65% in legacy pillar workings.',
+                mostCommonIn: 'Resource Audit Reports',
+                topSource: 'CIL Conservation Commendations',
+                trend: [9, 11, 14, 18, 22, 27, 32, 38, 44, 50, 57, 65]
+            },
+            'Beneficiation': {
+                name: 'Beneficiation',
+                category: 'production',
+                catLabel: 'Coal Processing',
+                occ: 215,
+                docs: 85,
+                rel: 74.0,
+                ring: 3,
+                angle: 85,
+                dx: 80, dy: -185,
+                related: ['Ash Content', 'Calorific Value', 'ROM Production', 'Extraction'],
+                aiInsight: 'Heavy media cyclone circuits yield high-grade coking coal fractions for domestic steel plants.',
+                mostCommonIn: 'Washery Yield Reports',
+                topSource: 'Coal Washery Operations',
+                trend: [8, 10, 13, 16, 20, 24, 28, 33, 38, 44, 51, 58]
+            },
+            'Mine Closure': {
+                name: 'Mine Closure',
+                category: 'environmental',
+                catLabel: 'Mine Life Cycle',
+                occ: 210,
+                docs: 80,
+                rel: 72.0,
+                ring: 3,
+                angle: 340,
+                dx: 0, dy: 195,
+                related: ['Reclamation', 'Groundwater', 'Mine Ventilation', 'Subsidence'],
+                aiInsight: 'Progressive closure frameworks cover void water management and post-operational community land handover.',
+                mostCommonIn: 'Progressive Closure Plans',
+                topSource: 'Ministry of Coal Approvals',
+                trend: [7, 9, 12, 15, 18, 22, 26, 31, 36, 42, 48, 55]
+            }
+        };
+
+        let currentSelectedTopicKey = 'Overburden';
+        let currentTopicCategoryFilter = 'all';
+        let currentTrendTimeRange = '3Y';
+        let topicTrendChartInstance = null;
+
+        // Clean, Serious Enterprise Category Colors (Muted, Understated)
+        const TOPIC_CATEGORY_THEMES = {
+            'production': {
+                dotColor: '#15803d',
+                textColor: '#0f172a',
+                hoverColor: '#166534',
+                lineStroke: '#94a3b8',
+                badgeBg: 'bg-emerald-50',
+                badgeText: 'text-emerald-800',
+                badgeBorder: 'border-emerald-200'
+            },
+            'geological': {
+                dotColor: '#0284c7',
+                textColor: '#0f172a',
+                hoverColor: '#0369a1',
+                lineStroke: '#94a3b8',
+                badgeBg: 'bg-sky-50',
+                badgeText: 'text-sky-800',
+                badgeBorder: 'border-sky-200'
+            },
+            'environmental': {
+                dotColor: '#b45309',
+                textColor: '#0f172a',
+                hoverColor: '#92400e',
+                lineStroke: '#94a3b8',
+                badgeBg: 'bg-amber-50',
+                badgeText: 'text-amber-800',
+                badgeBorder: 'border-amber-200'
+            },
+            'safety': {
+                dotColor: '#be123c',
+                textColor: '#0f172a',
+                hoverColor: '#9f1239',
+                lineStroke: '#94a3b8',
+                badgeBg: 'bg-rose-50',
+                badgeText: 'text-rose-800',
+                badgeBorder: 'border-rose-200'
+            },
+            'exploration': {
+                dotColor: '#0e7490',
+                textColor: '#0f172a',
+                hoverColor: '#155e75',
+                lineStroke: '#94a3b8',
+                badgeBg: 'bg-cyan-50',
+                badgeText: 'text-cyan-800',
+                badgeBorder: 'border-cyan-200'
+            }
+        };
+
+        // Render Clean Typographic Radial Word Map
+        function renderRadialWordCloud() {
+            const container = document.getElementById('radial-word-nodes-layer');
+            const linesGroup = document.getElementById('radial-connector-lines');
+            if (!container) return;
+
+            container.innerHTML = '';
+            if (linesGroup) linesGroup.innerHTML = '';
+
+            const rect = container.getBoundingClientRect();
+            const width = rect.width || 600;
+            const height = rect.height || 450;
+            const centerX = width / 2;
+            const centerY = height / 2;
+
+            // Scale factors based on available canvas space
+            const scaleX = Math.min(1.0, (width - 60) / 540);
+            const scaleY = Math.min(1.0, (height - 60) / 440);
+
+            const selectedData = MINING_TOPICS[currentSelectedTopicKey];
+            const selPosX = centerX + (selectedData.dx || 0) * scaleX;
+            const selPosY = centerY + (selectedData.dy || 0) * scaleY;
+
+            Object.keys(MINING_TOPICS).forEach(key => {
+                const item = MINING_TOPICS[key];
+                const isMatchingCategory = currentTopicCategoryFilter === 'all' || 
+                                           item.category === currentTopicCategoryFilter ||
+                                           (currentTopicCategoryFilter === 'exploration' && (item.category === 'exploration' || key === 'Borehole' || key === 'Exploration'));
+
+                const isSelected = key === currentSelectedTopicKey;
+                const isRelated = selectedData && selectedData.related && selectedData.related.includes(key);
+
+                // Compute exact position with gentle scale
+                const posX = centerX + (item.dx || 0) * scaleX;
+                const posY = centerY + (item.dy || 0) * scaleY;
+
+                // Typographic Hierarchy by Occurrence
+                let fontClass = 'text-[11.5px] font-medium text-slate-600';
+                if (item.occ >= 700) {
+                    fontClass = 'text-[20px] sm:text-[22px] font-black text-[#0f172a] tracking-tight';
+                } else if (item.occ >= 600) {
+                    fontClass = 'text-[17px] sm:text-[18.5px] font-extrabold text-[#0f172a] tracking-tight';
+                } else if (item.occ >= 450) {
+                    fontClass = 'text-[15px] sm:text-[16px] font-bold text-[#1e293b]';
+                } else if (item.occ >= 380) {
+                    fontClass = 'text-[13.5px] sm:text-[14px] font-semibold text-[#1e293b]';
+                } else if (item.occ >= 300) {
+                    fontClass = 'text-[12px] sm:text-[12.5px] font-medium text-slate-700';
+                }
+
+                const theme = TOPIC_CATEGORY_THEMES[item.category] || TOPIC_CATEGORY_THEMES['production'];
+
+                // Draw thin, crisp connection line ONLY from selected keyword to its related terms
+                if (linesGroup && isRelated && !isSelected && isMatchingCategory) {
+                    const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                    line.setAttribute('x1', selPosX);
+                    line.setAttribute('y1', selPosY);
+                    line.setAttribute('x2', posX);
+                    line.setAttribute('y2', posY);
+                    line.setAttribute('stroke', '#cbd5e1');
+                    line.setAttribute('stroke-width', '1.2');
+                    line.setAttribute('stroke-dasharray', '2,3');
+                    linesGroup.appendChild(line);
+                }
+
+                // Clean Typography Element (No heavy pill container!)
+                const nodeEl = document.createElement('div');
+                nodeEl.id = 'node-' + key.replace(/[^a-zA-Z0-9]/g, '-');
+                nodeEl.className = `topic-word-node absolute flex items-center gap-1.5 px-1.5 py-0.5 rounded-md ${fontClass}`;
+                nodeEl.style.left = `${posX}px`;
+                nodeEl.style.top = `${posY}px`;
+                nodeEl.style.transform = 'translate(-50%, -50%)';
+
+                // Category Dot
+                const dotHtml = `<span class="w-1.5 h-1.5 rounded-full inline-block shrink-0 opacity-80" style="background-color:${theme.dotColor}"></span>`;
+
+                if (isSelected) {
+                    // Selected state: refined clean underline / white card container
+                    nodeEl.classList.add('node-selected');
+                    nodeEl.innerHTML = `
+                        <div class="bg-white border border-[#0f172a] shadow-md px-3 py-1 rounded-lg flex items-center gap-1.5">
+                            ${dotHtml}
+                            <span class="font-black text-[#0f172a]">${item.name}</span>
+                        </div>
+                    `;
+                } else {
+                    nodeEl.innerHTML = `${dotHtml}<span>${item.name}</span>`;
+                    
+                    if (!isMatchingCategory) {
+                        nodeEl.classList.add('node-dimmed');
+                    } else if (isRelated) {
+                        nodeEl.classList.add('node-related');
+                        nodeEl.classList.remove('text-slate-600', 'text-slate-700');
+                        nodeEl.classList.add('text-[#0f172a]', 'font-bold');
+                    } else {
+                        // Regular unselected nodes are slightly quieter when something is selected
+                        nodeEl.style.opacity = '0.75';
+                    }
+                }
+
+                // Event Listeners
+                nodeEl.onmouseenter = (e) => showRadialTooltip(e, item);
+                nodeEl.onmouseleave = hideRadialTooltip;
+                nodeEl.onclick = () => selectTopicNode(key);
+
+                container.appendChild(nodeEl);
+            });
+        }
+
+        // Show Hover Tooltip
+        function showRadialTooltip(e, item) {
+            const tooltip = document.getElementById('radial-topic-tooltip');
+            const container = document.getElementById('radial-cloud-container');
+            if (!tooltip || !container) return;
+
+            document.getElementById('r-tooltip-title').textContent = item.name;
+            document.getElementById('r-tooltip-cat').textContent = item.catLabel;
+            document.getElementById('r-tooltip-occ').textContent = `${item.occ} mentions`;
+            document.getElementById('r-tooltip-rel').textContent = `${item.rel}%`;
+            document.getElementById('r-tooltip-docs').textContent = `${item.docs} PDFs`;
+
+            const cRect = container.getBoundingClientRect();
+            const x = e.clientX - cRect.left;
+            const y = e.clientY - cRect.top;
+
+            tooltip.style.left = `${x}px`;
+            tooltip.style.top = `${y}px`;
+            tooltip.classList.remove('opacity-0');
+            tooltip.classList.add('opacity-100');
+        }
+
+        function hideRadialTooltip() {
+            const tooltip = document.getElementById('radial-topic-tooltip');
+            if (tooltip) {
+                tooltip.classList.remove('opacity-100');
+                tooltip.classList.add('opacity-0');
+            }
+        }
+
+        // Select and Focus Topic Node
+        function selectTopicNode(topicKey) {
+            if (!MINING_TOPICS[topicKey]) return;
+            currentSelectedTopicKey = topicKey;
+            
+            const data = MINING_TOPICS[topicKey];
+            const theme = TOPIC_CATEGORY_THEMES[data.category] || TOPIC_CATEGORY_THEMES['production'];
+
+            // Update Detail Card Fields
+            document.getElementById('detail-topic-name').textContent = data.name;
+            document.getElementById('detail-topic-occ').textContent = data.occ;
+            document.getElementById('detail-topic-docs').textContent = data.docs;
+            document.getElementById('detail-topic-rel').textContent = `${data.rel}%`;
+            document.getElementById('detail-topic-cat').textContent = data.catLabel;
+            document.getElementById('detail-ai-insight').textContent = `"${data.aiInsight}"`;
+            document.getElementById('detail-context-common').textContent = data.mostCommonIn;
+            document.getElementById('detail-context-source').textContent = data.topSource;
+
+            // Update Badge
+            const badgeEl = document.getElementById('detail-topic-badge');
+            if (badgeEl) {
+                badgeEl.textContent = data.catLabel;
+                badgeEl.className = `px-2.5 py-0.5 rounded font-bold text-[10px] uppercase border ${theme.badgeBg} ${theme.badgeText} ${theme.badgeBorder}`;
+            }
+
+            // Update Related Topics Chips (Clean Understated Style)
+            const relatedContainer = document.getElementById('detail-related-chips');
+            if (relatedContainer) {
+                relatedContainer.innerHTML = (data.related || []).map(relKey => {
+                    const relData = MINING_TOPICS[relKey];
+                    const relTheme = relData ? TOPIC_CATEGORY_THEMES[relData.category] : theme;
+                    return `
+                        <button onclick="selectTopicNode('${relKey}')" class="px-2.5 py-1 rounded-lg text-xs font-semibold transition-all bg-gray-50 hover:bg-white text-gray-700 hover:text-[#0f172a] border border-gray-200/80 shadow-2xs hover:scale-105 active:scale-95 flex items-center gap-1.5">
+                            <span class="w-1.5 h-1.5 rounded-full" style="background-color:${relTheme.dotColor}"></span>
+                            <span>${relKey}</span>
+                        </button>
+                    `;
+                }).join('');
+            }
+
+            // Re-render Trend Chart
+            updateTopicTrendChart(data);
+
+            // Re-render Word Cloud to show active selection and clean connector lines
+            renderRadialWordCloud();
+
+            if (window.lucide) lucide.createIcons();
+        }
+
+        // Focus topic in cloud with smooth border pulse
+        function focusTopicInCloud(topicKey) {
+            selectTopicNode(topicKey);
+            const container = document.getElementById('radial-cloud-container');
+            if (container) {
+                container.classList.add('ring-1', 'ring-[#0f172a]');
+                setTimeout(() => container.classList.remove('ring-1', 'ring-[#0f172a]'), 500);
+            }
+        }
+
+        // Filter Category
+        function filterTopicCategory(cat) {
+            currentTopicCategoryFilter = cat;
+            document.querySelectorAll('.topic-cat-btn').forEach(btn => {
+                btn.classList.remove('bg-[#0f172a]', 'text-white', 'shadow-2xs');
+                btn.classList.add('bg-gray-50', 'text-gray-600', 'border-gray-200/60');
+            });
+            const activeBtn = document.getElementById('topic-filter-' + cat);
+            if (activeBtn) {
+                activeBtn.classList.remove('bg-gray-50', 'text-gray-600', 'border-gray-200/60');
+                activeBtn.classList.add('bg-[#0f172a]', 'text-white', 'shadow-2xs');
+            }
+            renderRadialWordCloud();
+        }
+
+        // Trend Chart Time Range Switcher
+        function setTrendTimeRange(range) {
+            currentTrendTimeRange = range;
+            document.querySelectorAll('.trend-btn').forEach(btn => {
+                btn.classList.remove('bg-white', 'text-[#0f172a]', 'shadow-2xs', 'font-extrabold');
+                btn.classList.add('hover:text-[#0f172a]');
+            });
+            const activeBtn = document.getElementById('trend-range-' + range);
+            if (activeBtn) {
+                activeBtn.classList.add('bg-white', 'text-[#0f172a]', 'shadow-2xs', 'font-extrabold');
+            }
+            const data = MINING_TOPICS[currentSelectedTopicKey];
+            if (data) updateTopicTrendChart(data);
+        }
+
+        // Update Trend Chart with Chart.js
+        function updateTopicTrendChart(data) {
+            const canvas = document.getElementById('topicTrendCanvas');
+            if (!canvas) return;
+
+            let labels = [];
+            let points = [];
+
+            if (currentTrendTimeRange === '1Y') {
+                labels = ['Q1 24', 'Q2 24', 'Q3 24', 'Q4 24'];
+                points = (data.trend || [20, 40, 60, 80]).slice(-4);
+            } else if (currentTrendTimeRange === '3Y') {
+                labels = ['2022 Q1', '2022 Q3', '2023 Q1', '2023 Q3', '2024 Q1', '2024 Q3'];
+                points = (data.trend || [10, 25, 45, 60, 80, 100]).slice(-6);
+            } else if (currentTrendTimeRange === '5Y') {
+                labels = ['2020', '2021', '2022', '2023', '2024'];
+                points = [
+                    Math.round(data.occ * 0.25),
+                    Math.round(data.occ * 0.42),
+                    Math.round(data.occ * 0.61),
+                    Math.round(data.occ * 0.82),
+                    data.occ
+                ];
+            } else { // ALL
+                labels = ['2018', '2019', '2020', '2021', '2022', '2023', '2024'];
+                points = [
+                    Math.round(data.occ * 0.12),
+                    Math.round(data.occ * 0.20),
+                    Math.round(data.occ * 0.35),
+                    Math.round(data.occ * 0.50),
+                    Math.round(data.occ * 0.68),
+                    Math.round(data.occ * 0.85),
+                    data.occ
+                ];
+            }
+
+            const theme = TOPIC_CATEGORY_THEMES[data.category] || TOPIC_CATEGORY_THEMES['production'];
+
+            if (topicTrendChartInstance) {
+                topicTrendChartInstance.destroy();
+            }
+
+            const ctx = canvas.getContext('2d');
+            const gradient = ctx.createLinearGradient(0, 0, 0, 90);
+            gradient.addColorStop(0, 'rgba(15, 23, 42, 0.08)');
+            gradient.addColorStop(1, 'rgba(15, 23, 42, 0.00)');
+
+            topicTrendChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: points,
+                        borderColor: '#0f172a',
+                        borderWidth: 1.8,
+                        backgroundColor: gradient,
+                        fill: true,
+                        tension: 0.35,
+                        pointRadius: 2.5,
+                        pointBackgroundColor: '#ffffff',
+                        pointBorderColor: '#0f172a',
+                        pointBorderWidth: 1.5,
+                        pointHoverRadius: 4.5
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: '#0f172a',
+                            titleFont: { size: 10, weight: 'bold' },
+                            bodyFont: { size: 11, weight: '600' },
+                            padding: 6,
+                            cornerRadius: 6,
+                            displayColors: false,
+                            callbacks: {
+                                label: (context) => `${context.parsed.y} Occurrences`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            grid: { display: false },
+                            ticks: { font: { size: 9, weight: '600' }, color: '#94a3b8' }
+                        },
+                        y: {
+                            grid: { color: '#f8fafc' },
+                            ticks: { font: { size: 9, weight: '600' }, color: '#94a3b8', maxTicksLimit: 3 }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Query selected topic directly in GeoAI
+        function queryTopicInAssistant(topicKey) {
+            const data = MINING_TOPICS[topicKey] || { name: topicKey };
+            const prompt = `Provide a comprehensive technical summary of "${data.name}" across CMPDI geological exploration and mine production reports.`;
+            
+            if (window.location.hash === '#query') {
+                sendPresetPrompt(prompt);
+            } else {
+                openFloatingChat();
+                sendFloatingPreset(prompt);
+            }
+        }
+
+        // Initialize when insights page is displayed or on window resize
+        function initTopicIntelligence() {
+            renderRadialWordCloud();
+            selectTopicNode(currentSelectedTopicKey);
+        }
+
+        window.addEventListener('resize', () => {
+            if (window.location.hash === '#insights' || document.getElementById('page-insights')?.classList.contains('active')) {
+                renderRadialWordCloud();
+            }
+        });
+
+        // Hook into handleRouting for #insights initialization
+        setTimeout(() => {
+            initTopicIntelligence();
+        }, 300);
+    </script>
+'''
+
+# Replace JS engine before </body>
+js_marker = '<!-- ================= MINING TOPIC INTELLIGENCE'
+js_start = html.find(js_marker)
+if js_start != -1:
+    body_pos = html.find('</body>', js_start)
+    if body_pos != -1:
+        html = html[:js_start] + radial_cloud_js + '\n' + html[body_pos:]
+        print("Updated JavaScript engine with clean typographic renderer")
+else:
+    html = html.replace('</body>', f'{radial_cloud_js}\n</body>')
+    print("Appended JavaScript engine before </body>")
+
+with open(ORIGINAL_HTML_PATH, 'w', encoding='utf-8') as f:
+    f.write(html)
+
+print("Successfully updated original_render_index.html with Clean Typographic Mining Word Map!")
